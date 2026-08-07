@@ -1,0 +1,376 @@
+<Window x:Class="SimpleCalendar.Windows.CalendarPopupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Calendar"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        Topmost="True"
+        Deactivated="Window_Deactivated"
+        Loaded="Window_Loaded"
+        Width="388" Height="560">
+
+    <Border Background="{DynamicResource PopupBackground}"
+            CornerRadius="12"
+            BorderBrush="{DynamicResource PopupBorder}"
+            BorderThickness="1"
+            Padding="0"
+            Margin="4">
+        <Border.Effect>
+            <DropShadowEffect ShadowDepth="4" BlurRadius="16" Opacity="0.25" Color="Black"/>
+        </Border.Effect>
+
+        <!-- 内容右对齐：窗口锚定屏幕右缘，侧板展开时从左侧露出，日历本体位置不动 -->
+        <Grid HorizontalAlignment="Right">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="380"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 右侧：日历区域（固定不动） -->
+            <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/> <!-- 时钟+天气 -->
+                <RowDefinition Height="1"/>     <!-- 分隔线 -->
+                <RowDefinition Height="Auto"/> <!-- 月份导航 -->
+                <RowDefinition Height="Auto"/> <!-- 星期头 -->
+                <RowDefinition Height="*"/>    <!-- 日历网格 -->
+                <RowDefinition Height="1"/>     <!-- 分隔线 -->
+                <RowDefinition Height="Auto"/> <!-- 图例 -->
+                <RowDefinition Height="Auto"/> <!-- 日历底部广告 -->
+            </Grid.RowDefinitions>
+
+            <!-- 时钟 + 天气 同行区域 -->
+            <Grid Grid.Row="0" Margin="20,16,20,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 时钟区域 -->
+                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock x:Name="TimeDisplay"
+                               Text="12:00"
+                               FontSize="32"
+                               FontWeight="Light"
+                               Foreground="{DynamicResource TextPrimary}"
+                               FontFamily="Segoe UI Light, Microsoft YaHei UI"/>
+                    <TextBlock x:Name="DateDisplay"
+                               Text="2026年5月27日 周三"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextSecondary}"
+                               FontFamily="Segoe UI, Microsoft YaHei UI"
+                               Margin="0,2,0,0"/>
+                </StackPanel>
+
+                <!-- 天气区域（移到时钟右侧） -->
+                <Border x:Name="WeatherPanel" Grid.Column="1" 
+                        Background="{DynamicResource WeatherCardBg}" CornerRadius="10"
+                        Padding="10,6,10,6"
+                        Visibility="Collapsed"
+                        VerticalAlignment="Center"
+                        Cursor="Hand"
+                        MouseLeftButtonUp="WeatherPanel_Click">
+                    <StackPanel>
+                        <!-- 第一行：图标 + 温度 + 城市 -->
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <TextBlock x:Name="WeatherIconText" Text="🌤️" FontSize="24" 
+                                       VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="WeatherTempText" Text="28°C" FontSize="18" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimary}"/>
+                                    <TextBlock x:Name="WeatherFeelsText" Text="体感 30°C" FontSize="9"
+                                               Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Bottom" Margin="4,0,0,2"/>
+                                </StackPanel>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                <TextBlock x:Name="WeatherCityText" Text="北京" FontSize="11" FontWeight="Medium"
+                                           Foreground="{DynamicResource TextPrimary}" HorizontalAlignment="Right"/>
+                            </StackPanel>
+                        </Grid>
+                        
+                        <!-- 第二行：描述 + 湿度 + 风力 -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
+                            <TextBlock x:Name="WeatherDescText" Text="多云" FontSize="10"
+                                       Foreground="{DynamicResource WeatherDescColor}"/>
+                            <TextBlock Text="  ·  " FontSize="10" Foreground="{DynamicResource TextSecondary}"/>
+                            <TextBlock x:Name="WeatherHumidityText" Text="💧 65%" FontSize="10"
+                                       Foreground="{DynamicResource TextSecondary}"/>
+                            <TextBlock Text="  ·  " FontSize="10" Foreground="{DynamicResource TextSecondary}"/>
+                            <TextBlock x:Name="WeatherWindText" Text=" 12km/h" FontSize="10"
+                                       Foreground="{DynamicResource TextSecondary}"/>
+                        </StackPanel>
+                        
+                        <!-- 天气卡片下方广告位 -->
+                        <Border x:Name="WeatherBottomAd" 
+                                Margin="0,4,0,0" 
+                                CornerRadius="6"
+                                Visibility="Collapsed"
+                                Cursor="Hand"
+                                MouseLeftButtonUp="WeatherBottomAd_Click">
+                            <StackPanel x:Name="WeatherBottomAdContent" Margin="6,3"/>
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- 分隔线 -->
+            <Rectangle Grid.Row="1" Fill="{DynamicResource DividerColor}" Margin="16,0"/>
+
+            <!-- 月份导航 -->
+            <Grid Grid.Row="2" Margin="12,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0" x:Name="PrevMonthBtn" Click="PrevMonth_Click"
+                        Style="{DynamicResource NavButtonStyle}" Content="&#xE76B;"/>
+                <TextBlock Grid.Column="1" x:Name="MonthYearText"
+                           Text="2026年5月"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           FontSize="14"
+                           FontWeight="Medium"
+                           Foreground="{DynamicResource TextPrimary}"
+                           FontFamily="Segoe UI, Microsoft YaHei UI"/>
+                <Button Grid.Column="2" x:Name="NextMonthBtn" Click="NextMonth_Click"
+                        Style="{DynamicResource NavButtonStyle}" Content="&#xE76C;"/>
+            </Grid>
+
+            <!-- 星期头 -->
+            <Grid Grid.Row="3" Margin="12,0,12,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/><ColumnDefinition/><ColumnDefinition/>
+                    <ColumnDefinition/><ColumnDefinition/><ColumnDefinition/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="日" Style="{DynamicResource WeekHeaderStyle}" Foreground="{DynamicResource HolidayColor}"/>
+                <TextBlock Grid.Column="1" Text="一" Style="{DynamicResource WeekHeaderStyle}"/>
+                <TextBlock Grid.Column="2" Text="二" Style="{DynamicResource WeekHeaderStyle}"/>
+                <TextBlock Grid.Column="3" Text="三" Style="{DynamicResource WeekHeaderStyle}"/>
+                <TextBlock Grid.Column="4" Text="四" Style="{DynamicResource WeekHeaderStyle}"/>
+                <TextBlock Grid.Column="5" Text="五" Style="{DynamicResource WeekHeaderStyle}"/>
+                <TextBlock Grid.Column="6" Text="六" Style="{DynamicResource WeekHeaderStyle}" Foreground="{DynamicResource HolidayColor}"/>
+            </Grid>
+
+            <!-- 日历网格 -->
+            <UniformGrid Grid.Row="4" x:Name="CalendarGrid"
+                         Columns="7" Rows="6"
+                         Margin="8,0,8,4"/>
+
+            <!-- 分隔线 -->
+            <Rectangle Grid.Row="5" Fill="{DynamicResource DividerColor}" Margin="16,0"/>
+
+            <!-- 图例 -->
+            <StackPanel Grid.Row="6" Orientation="Horizontal"
+                        HorizontalAlignment="Center" Margin="0,6,0,8">
+                <!-- 节假日图例 -->
+                <Border Background="#3016A34A" CornerRadius="3" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center">
+                    <TextBlock Text="休" FontSize="9" Foreground="#16A34A" FontWeight="SemiBold" 
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <TextBlock Text="假日" FontSize="10" Foreground="{DynamicResource TextSecondary}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                
+                <!-- 调休图例 -->
+                <Border Background="#30D97706" CornerRadius="3" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center">
+                    <TextBlock Text="班" FontSize="9" Foreground="#D97706" FontWeight="SemiBold" 
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <TextBlock Text="调班" FontSize="10" Foreground="{DynamicResource TextSecondary}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                
+                <!-- 今天图例 -->
+                <Ellipse Width="6" Height="6" Fill="{DynamicResource TodayColor}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                <TextBlock Text="今天" FontSize="10" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- 日历底部广告位 -->
+            <Border x:Name="CalendarBottomAd" Grid.Row="7" 
+                    Margin="12,0,12,8" 
+                    CornerRadius="6"
+                    Visibility="Collapsed"
+                    Cursor="Hand"
+                    MouseLeftButtonUp="CalendarBottomAd_Click">
+                <StackPanel x:Name="CalendarBottomAdContent" Margin="8,6"/>
+            </Border>
+        </Grid>
+
+            <!-- 左侧：小时天气预报区域（宽度由动画驱动，内容固定宽右对齐，从日历旁向左露出） -->
+            <Border x:Name="HourlyPanel" Grid.Column="0" 
+                    Width="0"
+                    ClipToBounds="True"
+                    Background="{DynamicResource WeatherHourlyBg}"
+                    CornerRadius="12,0,0,12"
+                    Margin="0,4,0,4"
+                    Visibility="Collapsed">
+                <Grid Width="320" HorizontalAlignment="Right">
+                <StackPanel Margin="16,12">
+                    <!-- 标题栏 -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="小时天气预报" 
+                                       FontSize="14" 
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimary}"/>
+                            <TextBlock x:Name="HourlyDayTitle" 
+                                       Text="" 
+                                       FontSize="11" 
+                                       Foreground="{DynamicResource TextSecondary}"
+                                       Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="✕" FontSize="12" 
+                                Width="28" Height="28"
+                                Background="Transparent" 
+                                BorderThickness="0"
+                                Foreground="{DynamicResource TextSecondary}"
+                                Cursor="Hand"
+                                Click="CloseHourlyPanel_Click"
+                                VerticalAlignment="Top"/>
+                    </Grid>
+                    
+                    <!-- 城市信息 -->
+                    <TextBlock x:Name="HourlyCityText" 
+                               Text="" 
+                               FontSize="11" 
+                               Foreground="{DynamicResource TextSecondary}"
+                               Margin="0,0,0,8"/>
+                    
+                    <!-- 三日预报卡片条 -->
+                    <StackPanel x:Name="ForecastPanel" Orientation="Horizontal" 
+                                HorizontalAlignment="Center"
+                                Margin="0,0,0,8">
+                        <!-- 动态生成 -->
+                    </StackPanel>
+                    
+                    <!-- 分隔线 -->
+                    <Rectangle Fill="{DynamicResource DividerColor}" 
+                               Height="1" 
+                               Margin="0,0,0,6" 
+                               Opacity="0.5"/>
+                    
+                    <!-- 表头 -->
+                    <Grid Margin="8,0,8,4" Opacity="0.6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="50"/>
+                            <ColumnDefinition Width="36"/>
+                            <ColumnDefinition Width="50"/>
+                            <ColumnDefinition Width="45"/>
+                            <ColumnDefinition Width="45"/>
+                            <ColumnDefinition Width="45"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="时间" FontSize="9" Foreground="{DynamicResource TextSecondary}" Grid.Column="0"/>
+                        <TextBlock Text="" FontSize="9" Grid.Column="1"/>
+                        <TextBlock Text="温度" FontSize="9" Foreground="{DynamicResource TextSecondary}" Grid.Column="2" HorizontalAlignment="Center"/>
+                        <TextBlock Text="降雨" FontSize="9" Foreground="{DynamicResource TextSecondary}" Grid.Column="3" HorizontalAlignment="Center"/>
+                        <TextBlock Text="湿度" FontSize="9" Foreground="{DynamicResource TextSecondary}" Grid.Column="4" HorizontalAlignment="Center"/>
+                        <TextBlock Text="体感" FontSize="9" Foreground="{DynamicResource TextSecondary}" Grid.Column="5" HorizontalAlignment="Center"/>
+                    </Grid>
+                    
+                    <!-- 小时预报滚动区域 -->
+                    <ScrollViewer x:Name="HourlyScroll" 
+                                  HorizontalScrollBarVisibility="Disabled" 
+                                  VerticalScrollBarVisibility="Hidden"
+                                  Height="370"
+                                  PreviewMouseWheel="HourlyScroll_PreviewMouseWheel">
+                        <StackPanel x:Name="HourlyContent" Orientation="Vertical">
+                            <!-- 动态生成 -->
+                        </StackPanel>
+                    </ScrollViewer>
+                    
+                    <!-- 小时预报底部广告位 -->
+                    <Border x:Name="HourlyBottomAd" 
+                            Margin="0,6,0,0" 
+                            CornerRadius="6"
+                            Visibility="Collapsed"
+                            Cursor="Hand"
+                            MouseLeftButtonUp="HourlyBottomAd_Click">
+                        <StackPanel x:Name="HourlyBottomAdContent" Margin="8,4"/>
+                    </Border>
+                </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 左侧：日程+黄历 Tab 面板（宽度由动画驱动，内容固定宽右对齐，从日历旁向左露出） -->
+            <Border x:Name="InfoPanel" Grid.Column="0"
+                    Width="0"
+                    ClipToBounds="True"
+                    Background="{DynamicResource PopupBackground}"
+                    BorderBrush="{DynamicResource PopupBorder}"
+                    BorderThickness="0,0,1,0"
+                    CornerRadius="12,0,0,12"
+                    Margin="0,4,0,4"
+                    Visibility="Collapsed">
+                <Grid Width="300" HorizontalAlignment="Right">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Tab 栏 -->
+                    <Grid Grid.Row="0" Margin="12,12,12,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="TabScheduleBg" Grid.Column="0" CornerRadius="6,0,0,6" Cursor="Hand" MouseLeftButtonUp="TabSchedule_Click">
+                            <TextBlock x:Name="TabScheduleText" Text="📝 日程" FontSize="12" FontWeight="Medium" Padding="12,6" HorizontalAlignment="Center"/>
+                        </Border>
+                        <Border x:Name="TabAlmanacBg" Grid.Column="1" CornerRadius="0,6,6,0" Cursor="Hand" MouseLeftButtonUp="TabAlmanac_Click">
+                            <TextBlock x:Name="TabAlmanacText" Text="📅 黄历" FontSize="12" FontWeight="Medium" Padding="12,6" HorizontalAlignment="Center"/>
+                        </Border>
+                        <Button Grid.Column="2" Content="✕" FontSize="12" Width="28" Height="28"
+                                Background="Transparent" BorderThickness="0"
+                                Foreground="{DynamicResource TextSecondary}" Cursor="Hand"
+                                Click="CloseInfoPanel_Click" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <!-- 日程内容 -->
+                    <StackPanel Grid.Row="1" x:Name="ScheduleTab" Margin="12,0">
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="ScheduleDateTitle" Text="" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Content="+ 添加" FontSize="11"
+                                    Background="Transparent" BorderThickness="0"
+                                    Foreground="{DynamicResource AccentColor}" Cursor="Hand"
+                                    Click="AddSchedule_Click" VerticalAlignment="Center"/>
+                        </Grid>
+                        <ScrollViewer VerticalScrollBarVisibility="Hidden" Height="430">
+                            <StackPanel x:Name="ScheduleContent"/>
+                        </ScrollViewer>
+                    </StackPanel>
+
+                    <!-- 黄历内容 -->
+                    <StackPanel Grid.Row="1" x:Name="AlmanacTab" Margin="16,0" Visibility="Collapsed">
+                        <TextBlock x:Name="AlmanacDateTitle" Text="" FontSize="11"
+                                   Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,8"/>
+                        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Hidden" Height="440">
+                            <StackPanel x:Name="AlmanacContent"/>
+                        </ScrollViewer>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

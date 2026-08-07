@@ -1,0 +1,180 @@
+<Window x:Class="SimpleCalendar.Windows.ScheduleEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="日程编辑"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        Width="380" Height="560"
+        WindowStartupLocation="CenterScreen">
+
+    <Border Background="{DynamicResource PopupBackground}"
+            CornerRadius="12"
+            BorderBrush="{DynamicResource PopupBorder}"
+            BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect ShadowDepth="8" BlurRadius="20" Opacity="0.3" Color="Black"/>
+        </Border.Effect>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- 标题栏 -->
+            <Grid Grid.Row="0" Height="44">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TitleLabel" Text="新建日程"
+                           FontSize="14" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextPrimary}"
+                           VerticalAlignment="Center" Margin="16,0"/>
+                <Button Grid.Column="1" Content="✕" FontSize="13"
+                        Width="36" Height="36"
+                        Background="Transparent" BorderThickness="0"
+                        Foreground="{DynamicResource TextSecondary}"
+                        Cursor="Hand" Click="Close_Click"/>
+            </Grid>
+
+            <Rectangle Grid.Row="0" VerticalAlignment="Bottom" Height="1" Fill="{DynamicResource DividerColor}"/>
+
+            <!-- 内容 -->
+            <ScrollViewer Grid.Row="1" Margin="16,12" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+
+                    <!-- 标题输入 -->
+                    <TextBlock Text="标题" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,4"/>
+                    <TextBox x:Name="TitleBox" Margin="0,0,0,12" Padding="8,6"
+                             Background="{DynamicResource SettingsInputBg}"
+                             BorderBrush="{DynamicResource SettingsInputBorder}"
+                             BorderThickness="1"
+                             Foreground="{DynamicResource TextPrimary}"
+                             FontSize="13"/>
+
+                    <!-- 描述 -->
+                    <TextBlock Text="描述" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,4"/>
+                    <TextBox x:Name="DescBox" Margin="0,0,0,12" Padding="8,6" Height="56"
+                             AcceptsReturn="True" TextWrapping="Wrap"
+                             Background="{DynamicResource SettingsInputBg}"
+                             BorderBrush="{DynamicResource SettingsInputBorder}"
+                             BorderThickness="1"
+                             Foreground="{DynamicResource TextPrimary}"
+                             FontSize="13"/>
+
+                    <!-- 全天 -->
+                    <CheckBox x:Name="AllDayCheck" Content="全天事件"
+                              Foreground="{DynamicResource TextPrimary}"
+                              FontSize="12" Margin="0,0,0,12"
+                              Checked="AllDayCheck_Changed"
+                              Unchecked="AllDayCheck_Changed"/>
+
+                    <!-- 日期时间 -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="开始" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,4"/>
+                            <StackPanel Orientation="Horizontal">
+                                <ComboBox x:Name="StartYearCombo" Width="64" Margin="0,0,3,0"/>
+                                <ComboBox x:Name="StartMonthCombo" Width="42" Margin="0,0,3,0"/>
+                                <ComboBox x:Name="StartDayCombo" Width="42"/>
+                            </StackPanel>
+                            <ComboBox x:Name="StartTimeCombo" Margin="0,4,0,0" Width="151"/>
+                        </StackPanel>
+
+                        <TextBlock Grid.Column="1" Text="→" FontSize="14"
+                                   Foreground="{DynamicResource TextSecondary}"
+                                   VerticalAlignment="Center" Margin="6,16,6,0"/>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="结束" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,4"/>
+                            <StackPanel Orientation="Horizontal">
+                                <ComboBox x:Name="EndYearCombo" Width="64" Margin="0,0,3,0"/>
+                                <ComboBox x:Name="EndMonthCombo" Width="42" Margin="0,0,3,0"/>
+                                <ComboBox x:Name="EndDayCombo" Width="42"/>
+                            </StackPanel>
+                            <ComboBox x:Name="EndTimeCombo" Margin="0,4,0,0" Width="151"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 重复 -->
+                    <TextBlock Text="重复" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,4"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <ComboBox x:Name="RepeatCombo" Width="100" SelectionChanged="RepeatCombo_Changed">
+                            <ComboBoxItem Content="不重复" Tag=""/>
+                            <ComboBoxItem Content="每天" Tag="daily"/>
+                            <ComboBoxItem Content="每周" Tag="weekly"/>
+                            <ComboBoxItem Content="每月" Tag="monthly"/>
+                            <ComboBoxItem Content="每年" Tag="yearly"/>
+                        </ComboBox>
+                        <StackPanel x:Name="RepeatIntervalPanel" Orientation="Horizontal" Margin="8,0,0,0" Visibility="Collapsed">
+                            <TextBlock Text="每" FontSize="12" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
+                            <TextBox x:Name="RepeatIntervalBox" Width="40" Margin="4,0" Text="1" Padding="4,2"
+                                     Background="{DynamicResource SettingsInputBg}"
+                                     BorderBrush="{DynamicResource SettingsInputBorder}"
+                                     BorderThickness="1"
+                                     Foreground="{DynamicResource TextPrimary}"/>
+                            <TextBlock x:Name="RepeatUnitText" Text="天" FontSize="12" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- 提醒 -->
+                    <TextBlock Text="提醒" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="ReminderCombo" Margin="0,0,0,12">
+                        <ComboBoxItem Content="不提醒" Tag="0"/>
+                        <ComboBoxItem Content="提前5分钟" Tag="5"/>
+                        <ComboBoxItem Content="提前15分钟" Tag="15"/>
+                        <ComboBoxItem Content="提前30分钟" Tag="30"/>
+                        <ComboBoxItem Content="提前1小时" Tag="60"/>
+                        <ComboBoxItem Content="提前1天" Tag="1440"/>
+                    </ComboBox>
+
+                    <!-- 颜色 -->
+                    <TextBlock Text="颜色" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,4"/>
+                    <StackPanel x:Name="ColorPanel" Orientation="Horizontal" Margin="0,0,0,4">
+                        <Border Width="24" Height="24" Background="#3B82F6" CornerRadius="4" Cursor="Hand" Tag="#3B82F6" MouseLeftButtonUp="Color_Click" Margin="0,0,8,0"/>
+                        <Border Width="24" Height="24" Background="#EF4444" CornerRadius="4" Cursor="Hand" Tag="#EF4444" MouseLeftButtonUp="Color_Click" Margin="0,0,8,0"/>
+                        <Border Width="24" Height="24" Background="#10B981" CornerRadius="4" Cursor="Hand" Tag="#10B981" MouseLeftButtonUp="Color_Click" Margin="0,0,8,0"/>
+                        <Border Width="24" Height="24" Background="#F59E0B" CornerRadius="4" Cursor="Hand" Tag="#F59E0B" MouseLeftButtonUp="Color_Click" Margin="0,0,8,0"/>
+                        <Border Width="24" Height="24" Background="#8B5CF6" CornerRadius="4" Cursor="Hand" Tag="#8B5CF6" MouseLeftButtonUp="Color_Click" Margin="0,0,8,0"/>
+                        <Border Width="24" Height="24" Background="#EC4899" CornerRadius="4" Cursor="Hand" Tag="#EC4899" MouseLeftButtonUp="Color_Click"/>
+                    </StackPanel>
+
+                </StackPanel>
+            </ScrollViewer>
+
+            <Rectangle Grid.Row="2" VerticalAlignment="Top" Height="1" Fill="{DynamicResource DividerColor}"/>
+
+            <!-- 按钮 -->
+            <Grid Grid.Row="2" Height="52" Margin="16,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Button x:Name="DeleteBtn" Grid.Column="0" Content="删除" Margin="0,8,6,8"
+                        Background="{DynamicResource SettingsInputBg}"
+                        BorderBrush="{DynamicResource SettingsInputBorder}"
+                        BorderThickness="1"
+                        Foreground="{DynamicResource TextPrimary}"
+                        FontSize="13" Cursor="Hand"
+                        Click="Delete_Click" Visibility="Collapsed"/>
+                <Button Grid.Column="1" Content="保存" Margin="6,8,0,8"
+                        Background="{DynamicResource AccentColor}"
+                        BorderThickness="0"
+                        Foreground="White"
+                        FontSize="13" FontWeight="Medium" Cursor="Hand"
+                        Click="Save_Click"/>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

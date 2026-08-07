@@ -1,0 +1,117 @@
+<UserControl x:Class="SimpleCalendar.Windows.TaskbarClockControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent"
+             Cursor="Hand">
+
+    <Grid Background="Transparent">
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <!-- 第1部分：AI快捷键 -->
+            <Border x:Name="AIBtnBorder"
+                    Background="Transparent"
+                    CornerRadius="4"
+                    Padding="6,0"
+                    Margin="0,0,8,0"
+                    Cursor="Hand"
+                    MouseLeftButtonUp="AI_MouseLeftButtonUp"
+                    ToolTip="点击打开AI助手">
+                <TextBlock x:Name="AIIconText"
+                           Text="✨"
+                           FontSize="13"
+                           FontFamily="Segoe UI Emoji, Segoe UI Symbol"
+                           Foreground="#FF60A5FA"
+                           VerticalAlignment="Center"
+                           FontWeight="Bold"/>
+            </Border>
+
+            <!-- 分隔线 -->
+            <Border Width="1" Background="#33FFFFFF" Margin="0,2,0,2"/>
+
+            <!-- 第2部分：时钟（两行：时间/日期） -->
+            <Grid VerticalAlignment="Center" Margin="8,0,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- 第一行：时间 -->
+                <TextBlock x:Name="TimeText"
+                           Grid.Row="0"
+                           Text="14:00"
+                           Foreground="White"
+                           FontSize="12"
+                           FontWeight="Medium"
+                           Width="48"
+                           TextAlignment="Left"
+                           FontFamily="Segoe UI Variable Display Semib, Microsoft YaHei UI"
+                           Margin="0,2,0,0"/>
+
+                <!-- 第二行：日期 + 农历 -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,2">
+                    <TextBlock x:Name="DateText"
+                               Text="5/27"
+                               Foreground="#EEFFFFFF"
+                               FontSize="11"
+                               FontFamily="Segoe UI Variable Text, Microsoft YaHei UI"
+                               Margin="0,0,4,0"/>
+                    <TextBlock x:Name="LunarText"
+                               Text="四月十一"
+                               Foreground="#FFD700"
+                               FontSize="11"
+                               FontFamily="Microsoft YaHei UI"
+                               FontWeight="Medium"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- 第3部分：天气（独立两行：图标温度/描述） -->
+            <Border x:Name="WeatherBtnBorder"
+                    Background="Transparent"
+                    CornerRadius="4"
+                    Padding="4,0"
+                    Margin="8,0,0,0"
+                    Cursor="Hand"
+                    MouseLeftButtonUp="Weather_MouseLeftButtonUp"
+                    ToolTip="点击查看天气详情"
+                    Visibility="Collapsed">
+                <Grid VerticalAlignment="Center">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 第一行：图标 + 温度 -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,2,0,0">
+                        <TextBlock x:Name="ClockWeatherIcon"
+                                   Text=" "
+                                   FontSize="11"
+                                   FontFamily="Segoe UI Emoji, Segoe UI Symbol"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,2,0"
+                                   MinWidth="16"/>
+                        <TextBlock x:Name="ClockWeatherTemp"
+                                   Text=" "
+                                   Foreground="#CCFFFFFF"
+                                   FontSize="11"
+                                   VerticalAlignment="Center"
+                                   FontFamily="Segoe UI, Microsoft YaHei UI"
+                                   MinWidth="28"
+                                   TextAlignment="Left"/>
+                    </StackPanel>
+
+                    <!-- 第二行：天气描述 -->
+                    <TextBlock x:Name="ClockWeatherDesc"
+                               Grid.Row="1"
+                               Text=" "
+                               Foreground="#99FFFFFF"
+                               FontSize="9"
+                               VerticalAlignment="Center"
+                               FontFamily="Microsoft YaHei UI"
+                               Margin="0,0,0,2"
+                               MinWidth="44"
+                               TextAlignment="Left"/>
+                </Grid>
+            </Border>
+
+        </StackPanel>
+    </Grid>
+</UserControl>

@@ -1,0 +1,58 @@
+<Window x:Class="SimpleCalendar.Windows.MonitorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SimpleCalendarMonitor"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        WindowStartupLocation="Manual"
+        Topmost="True"
+        ShowActivated="False">
+    <!-- 监控进度条容器：直接覆盖在任务栏上（左侧），透明区域不拦截鼠标 -->
+    <Grid x:Name="MonitorContainer" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="6,0">
+        <Grid.Resources>
+            <!-- 紧凑样式：标签 -->
+            <Style x:Key="MonLabel" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="9"/>
+                <Setter Property="Foreground" Value="#99FFFFFF"/>
+                <Setter Property="FontFamily" Value="Segoe UI Variable Text, Microsoft YaHei UI"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="Width" Value="28"/>
+            </Style>
+            <!-- 紧凑样式：圆角进度条 -->
+            <Style x:Key="MonBar" TargetType="ProgressBar">
+                <Setter Property="Height" Value="5"/>
+                <Setter Property="Width" Value="42"/>
+                <Setter Property="Minimum" Value="0"/>
+                <Setter Property="Maximum" Value="100"/>
+                <Setter Property="Background" Value="#33FFFFFF"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="Margin" Value="2,0,2,0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ProgressBar">
+                            <Grid>
+                                <Border x:Name="PART_Track" CornerRadius="3" Background="{TemplateBinding Background}"/>
+                                <Border x:Name="PART_Indicator" CornerRadius="3"
+                                        Background="{TemplateBinding Foreground}"
+                                        HorizontalAlignment="Left"/>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <!-- 紧凑样式：使用率数值 -->
+            <Style x:Key="MonUsage" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="10"/>
+                <Setter Property="FontFamily" Value="Segoe UI Variable Display Semib, Microsoft YaHei UI"/>
+                <Setter Property="FontWeight" Value="Medium"/>
+                <Setter Property="TextAlignment" Value="Right"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="Width" Value="26"/>
+            </Style>
+        </Grid.Resources>
+    </Grid>
+</Window>
