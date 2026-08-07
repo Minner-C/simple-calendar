@@ -2,6 +2,26 @@
 
 一款 Windows 桌面工具，以任务栏时钟替换为核心，集成农历日历、日程管理、AI 助手、硬件监控等功能。支持 Win11 任务栏时钟 Hook 自定义显示，自带安装包，开箱即用。
 
+> ⚠️ **重要声明：本项目采用 PolyForm Noncommercial License，禁止商业用途。转载请注明出处或原作者 Minner-C。**
+
+## 软件截图
+
+### 天气与日历
+
+![天气与日历](screenshots/weather-calendar.png)
+
+### 任务栏时钟
+
+![任务栏时钟](screenshots/taskbar-clock.png)
+
+### 硬件监控
+
+![硬件监控](screenshots/hardware-monitor.png)
+
+### 设置界面
+
+![设置界面](screenshots/settings-window.png)
+
 ## 主要功能
 
 ### 任务栏时钟
