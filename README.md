@@ -147,4 +147,4 @@ MIT License
 
 ## 作者
 
-SimpleCalendar
+Minner-C
