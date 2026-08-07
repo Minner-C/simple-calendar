@@ -143,7 +143,9 @@ ISCC.exe setup.iss
 
 ## 许可证
 
-MIT License
+PolyForm Noncommercial License 1.0.0 - 禁止商业用途
+
+本项目可免费使用、修改和分发，但**不得用于任何商业目的**。详见 [LICENSE](LICENSE)。
 
 ## 作者
 
