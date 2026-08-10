@@ -4,13 +4,13 @@
         Title="SimpleCalendarMonitor"
         WindowStyle="None"
         AllowsTransparency="True"
-        Background="Transparent"
         ShowInTaskbar="False"
         ResizeMode="NoResize"
         WindowStartupLocation="Manual"
         Topmost="True"
-        ShowActivated="False">
-    <!-- 监控进度条容器：直接覆盖在任务栏上（左侧），透明区域不拦截鼠标 -->
+        ShowActivated="False"
+        Background="#01000000">
+    <!-- 监控进度条容器：直接覆盖在任务栏上（左侧），窗口整体捕获鼠标避免交互透传 -->
     <Grid x:Name="MonitorContainer" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="6,0">
         <Grid.Resources>
             <!-- 紧凑样式：标签 -->

@@ -36,8 +36,11 @@ public partial class MonitorWindow : Window
     private bool _volumeSupported = true, _brightnessSupported = true;
     private int _adjReadbackCounter;
 
-    // 每行网格及其悬浮提示（鼠标悬浮显示详细数据、右键菜单）
+    // 每行网格引用
     private readonly Dictionary<MonitorItem, Grid> _rowGrids = new();
+
+    // 整个监控窗口共用的悬浮提示（显示全部监控项信息）
+    private System.Windows.Controls.ToolTip? _windowTooltip;
 
     // 定位/保活
     private System.Threading.Timer? _positionTimer;
@@ -66,6 +69,12 @@ public partial class MonitorWindow : Window
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        // 创建全局悬浮提示（显示全部监控项）
+        CreateWindowTooltip();
+
+        // 整个窗口响应右键菜单，不透传到任务栏
+        PreviewMouseRightButtonDown += OnWindowPreviewMouseRightButtonDown;
+
         // 先按设置构建监控行，再定位（确保测量到正确宽度）
         ApplyMonitorSettings();
         PositionWindow();
@@ -88,6 +97,25 @@ public partial class MonitorWindow : Window
         _positionTimer?.Dispose();
         _positionTimer = null;
         SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+    }
+
+    /// <summary>创建整个监控窗口共用的悬浮提示，显示全部监控项信息。</summary>
+    private void CreateWindowTooltip()
+    {
+        _windowTooltip = new System.Windows.Controls.ToolTip
+        {
+            Foreground = new SolidColorBrush(Colors.White),
+            Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0xE0, 0x20, 0x20, 0x28)),
+            BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(10),
+            FontSize = 12
+        };
+
+        ToolTipService.SetInitialShowDelay(this, 300);
+        ToolTipService.SetShowDuration(this, 10000);
+        this.ToolTip = _windowTooltip;
+        MonitorContainer.ToolTip = _windowTooltip;
     }
 
     /// <summary>定位到任务栏左侧（不在时钟区）。与 TaskbarClockWindow 同算法，但锚定左侧。</summary>
@@ -362,7 +390,7 @@ public partial class MonitorWindow : Window
         Grid.SetColumn(value, 2);
         row.Children.Add(value);
 
-        AttachRowInteraction(row, item);
+        SetSharedTooltip(row, labelEl, bar, value);
         return row;
     }
 
@@ -402,9 +430,6 @@ public partial class MonitorWindow : Window
             Value = supported ? initVal : 0,
             Foreground = supported ? blueBrush : mutedBrush,
             Cursor = supported ? System.Windows.Input.Cursors.Hand : System.Windows.Input.Cursors.No,
-            ToolTip = supported
-                ? (item == MonitorItem.Volume ? "点击或拖动调节音量" : "点击或拖动调节亮度")
-                : (item == MonitorItem.Volume ? "音量控制不可用" : "亮度控制不可用（需支持WMI的显示器/笔记本）"),
             IsHitTestVisible = supported
         };
         Grid.SetColumn(bar, 1);
@@ -419,7 +444,7 @@ public partial class MonitorWindow : Window
         Grid.SetColumn(value, 2);
         row.Children.Add(value);
 
-        AttachRowInteraction(row, item);
+        SetSharedTooltip(row, labelEl, bar, value);
 
         if (!supported)
         {
@@ -589,7 +614,7 @@ public partial class MonitorWindow : Window
                 }
             }
 
-            UpdateRowToolTips(stats);
+            UpdateWindowTooltip();
         }
         catch { }
     }
@@ -619,59 +644,93 @@ public partial class MonitorWindow : Window
         return new SolidColorBrush(c);
     }
 
-    /// <summary>为监控行附加鼠标悬浮提示与右键菜单</summary>
-    private void AttachRowInteraction(Grid row, MonitorItem item)
+    /// <summary>将全局悬浮提示附加到监控行内的所有元素上。</summary>
+    private void SetSharedTooltip(params UIElement[] elements)
     {
-        row.ToolTip = new System.Windows.Controls.ToolTip
-        {
-            Content = GetMonitorLabel(item),
-            Foreground = new SolidColorBrush(Colors.White),
-            Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0xE0, 0x20, 0x20, 0x28)),
-            BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)),
-            BorderThickness = new Thickness(1),
-            Padding = new Thickness(8),
-            FontSize = 12
-        };
-        ToolTipService.SetInitialShowDelay(row, 300);
-        ToolTipService.SetShowDuration(row, 10000);
-
-        row.MouseRightButtonDown += (s, e) =>
-        {
-            ShowMonitorContextMenu();
-            e.Handled = true;
-        };
+        if (_windowTooltip == null) return;
+        foreach (var el in elements)
+            ToolTipService.SetToolTip(el, _windowTooltip);
     }
 
-    /// <summary>更新各监控行的悬浮提示内容</summary>
-    private void UpdateRowToolTips(HardwareStats stats)
+    /// <summary>更新全局悬浮提示内容（显示全部监控项信息）。</summary>
+    private void UpdateWindowTooltip()
     {
-        foreach (var kv in _rowGrids)
+        if (_windowTooltip == null) return;
+        _windowTooltip.Content = BuildAllItemsTooltip();
+    }
+
+    /// <summary>构建包含全部启用监控项信息的提示文本。</summary>
+    private string BuildAllItemsTooltip()
+    {
+        if (_lastStats == null) return "监控数据加载中…";
+
+        var lines = new System.Collections.Generic.List<string>();
+
+        if (_settings.MonitorShowCpu || _settings.MonitorShowCpuTemp)
         {
-            var item = kv.Key;
-            var row = kv.Value;
-            if (row.ToolTip is not System.Windows.Controls.ToolTip tooltip) continue;
-
-            string detail = item switch
+            lines.Add($"CPU: {_lastStats.CpuName}");
+            if (_settings.MonitorShowCpu) lines.Add($"  使用率: {_lastStats.CpuUsage:F0}%");
+            if (_settings.MonitorShowCpuTemp)
             {
-                MonitorItem.CpuUsage => $"CPU: {stats.CpuName}\n使用率: {stats.CpuUsage:F0}%",
-                MonitorItem.CpuTemp  => stats.CpuTemp > 0
-                    ? $"CPU 温度: {stats.CpuTemp:F0}°C"
-                    : "CPU 温度: 暂不可用",
-                MonitorItem.Memory   => $"内存使用: {stats.MemoryUsedGB}GB / {stats.MemoryTotalGB}GB ({stats.MemoryUsage:F0}%)",
-                MonitorItem.GpuUsage => stats.HasNvidiaGpu
-                    ? $"GPU: {stats.GpuName}\n使用率: {stats.GpuUsage:F0}%"
-                    : "GPU: 未检测到 NVIDIA 显卡",
-                MonitorItem.GpuTemp  => stats.HasNvidiaGpu && stats.GpuTemp > 0
-                    ? $"GPU: {stats.GpuName}\n温度: {stats.GpuTemp:F0}°C"
-                    : "GPU 温度: 未检测到 NVIDIA 显卡或温度不可用",
-                MonitorItem.Token    => $"今日 Token: {TokenUsageManager.FormatTokens(TokenUsageManager.GetTodayTokens())} / {TokenUsageManager.FormatTokens(TokenUsageManager.GetDailyThreshold())}",
-                MonitorItem.Volume   => _volumeSupported ? $"音量: {_volumeBar?.Value:F0}%" : "音量控制不可用",
-                MonitorItem.Brightness => _brightnessSupported ? $"亮度: {_brightnessBar?.Value:F0}%" : "亮度控制不可用",
-                _ => GetMonitorLabel(item)
-            };
-
-            tooltip.Content = detail;
+                lines.Add(_lastStats.CpuTemp > 0
+                    ? $"  温度: {_lastStats.CpuTemp:F0}°C"
+                    : "  温度: 暂不可用");
+            }
         }
+
+        if (_settings.MonitorShowGpu || _settings.MonitorShowGpuTemp)
+        {
+            if (_lastStats.HasNvidiaGpu)
+            {
+                lines.Add($"GPU: {_lastStats.GpuName}");
+                if (_settings.MonitorShowGpu) lines.Add($"  使用率: {_lastStats.GpuUsage:F0}%");
+                if (_settings.MonitorShowGpuTemp)
+                {
+                    lines.Add(_lastStats.GpuTemp > 0
+                        ? $"  温度: {_lastStats.GpuTemp:F0}°C"
+                        : "  温度: 暂不可用");
+                }
+            }
+            else
+            {
+                lines.Add("GPU: 未检测到 NVIDIA 显卡");
+            }
+        }
+
+        if (_settings.MonitorShowMem)
+        {
+            lines.Add($"内存: {_lastStats.MemoryUsedGB}GB / {_lastStats.MemoryTotalGB}GB ({_lastStats.MemoryUsage:F0}%)");
+        }
+
+        if (_settings.MonitorShowToken)
+        {
+            lines.Add($"今日 Token: {TokenUsageManager.FormatTokens(TokenUsageManager.GetTodayTokens())} / {TokenUsageManager.FormatTokens(TokenUsageManager.GetDailyThreshold())}");
+        }
+
+        if (_settings.MonitorShowVolume)
+        {
+            if (_volumeSupported && _volumeBar != null)
+                lines.Add($"音量: {_volumeBar.Value:F0}%");
+            else
+                lines.Add("音量: 不可用");
+        }
+
+        if (_settings.MonitorShowBrightness)
+        {
+            if (_brightnessSupported && _brightnessBar != null)
+                lines.Add($"亮度: {_brightnessBar.Value:F0}%");
+            else
+                lines.Add("亮度: 不可用");
+        }
+
+        return lines.Count == 0 ? "未启用任何监控项" : string.Join("\n", lines);
+    }
+
+    /// <summary>窗口级右键菜单：在监控窗口任意位置右键都弹出菜单，并阻止交互透传。</summary>
+    private void OnWindowPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        ShowMonitorContextMenu();
+        e.Handled = true;
     }
 
     /// <summary>显示监控窗口右键菜单</summary>
