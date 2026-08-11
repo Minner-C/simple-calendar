@@ -227,12 +227,13 @@ static std::atomic<int> g_addLogCount{ 0 };
 static std::atomic<double> g_pinnedWidth{ 0.0 };
 static std::atomic<int> g_applyTicks{ 0 };
 
-// 点击事件：DLL 挂 Tapped 处理器 → 分区置位事件通知主程序
+// 点击事件：DLL 挂 Tapped/RightTapped 处理器 → 分区置位事件通知主程序
 // 区域：时钟本体(时间+日期)=日历，天气分段=天气，AI分段=AI
-enum class RegKind { Tapped, PointerEntered, PointerExited };
+enum class RegKind { Tapped, RightTapped, PointerEntered, PointerExited };
 struct TapRegistration { winrt::weak_ref<wux::FrameworkElement> element; winrt::event_token token; RegKind kind; };
 static std::vector<TapRegistration> g_tapRegs;
 static HANDLE g_clickEvents[3] = {};       // 0=AI 1=Calendar 2=Weather
+static HANDLE g_rightClickEvent = nullptr; // 时钟任意区域右键
 
 // 天气 / AI 分段元素（插在时钟旁边）
 static winrt::weak_ref<wux::Controls::StackPanel> g_segPanel{ nullptr };
@@ -340,25 +341,42 @@ static void ApplyClockText(const wux::FrameworkElement& element)
 static void AttachZoneTap(const wux::FrameworkElement& el, int zone)
 {
     std::lock_guard<std::mutex> guard(g_clockElementsMutex);
+    bool hasTapped = false, hasRightTapped = false;
     for (auto& r : g_tapRegs)
     {
-        // 只按 Tapped 注册去重：同一元素可能已挂过 PointerEntered/Exited（如 AI 胶囊），
-        // 否则会因为"元素已在注册表"而漏挂 Tapped，导致该分区点击无响应
-        if (r.kind != RegKind::Tapped) continue;
         if (auto e = r.element.get())
         {
-            if (winrt::get_abi(e) == winrt::get_abi(el)) return;
+            if (winrt::get_abi(e) != winrt::get_abi(el)) continue;
         }
+        if (r.kind == RegKind::Tapped) hasTapped = true;
+        if (r.kind == RegKind::RightTapped) hasRightTapped = true;
     }
-    auto token = el.Tapped(
-        [zone](wf::IInspectable const&, wux::Input::TappedRoutedEventArgs const& args)
-        {
-            args.Handled(true); // 抑制默认的通知中心弹出
-            Log(L"Zone tap fired: zone=%d, event=%p", zone, g_clickEvents[zone]);
-            if (g_clickEvents[zone]) SetEvent(g_clickEvents[zone]);
-        });
-    g_tapRegs.push_back({ winrt::make_weak(el), token, RegKind::Tapped });
-    Log(L"AttachZoneTap: zone=%d attached to %s", zone, winrt::get_class_name(el).c_str());
+
+    if (!hasTapped)
+    {
+        auto token = el.Tapped(
+            [zone](wf::IInspectable const&, wux::Input::TappedRoutedEventArgs const& args)
+            {
+                args.Handled(true); // 抑制默认的通知中心弹出
+                Log(L"Zone tap fired: zone=%d, event=%p", zone, g_clickEvents[zone]);
+                if (g_clickEvents[zone]) SetEvent(g_clickEvents[zone]);
+            });
+        g_tapRegs.push_back({ winrt::make_weak(el), token, RegKind::Tapped });
+        Log(L"AttachZoneTap: zone=%d attached to %s", zone, winrt::get_class_name(el).c_str());
+    }
+
+    if (!hasRightTapped)
+    {
+        auto rightToken = el.RightTapped(
+            [](wf::IInspectable const&, wux::Input::RightTappedRoutedEventArgs const& args)
+            {
+                args.Handled(true); // 抑制任务栏默认右键菜单
+                Log(L"Right tap fired, event=%p", g_rightClickEvent);
+                if (g_rightClickEvent) SetEvent(g_rightClickEvent);
+            });
+        g_tapRegs.push_back({ winrt::make_weak(el), rightToken, RegKind::RightTapped });
+        Log(L"AttachZoneRightTap attached to %s", winrt::get_class_name(el).c_str());
+    }
 }
 
 // 在时钟元素旁插入天气 / AI 分段面板（三区独立点击：时间=日历、天气、AI）
@@ -1140,6 +1158,7 @@ static DWORD WINAPI StopWatchThread(LPVOID)
                     switch (r.kind)
                     {
                     case RegKind::Tapped:         e.Tapped(r.token); break;
+                    case RegKind::RightTapped:    e.RightTapped(r.token); break;
                     case RegKind::PointerEntered: e.PointerEntered(r.token); break;
                     case RegKind::PointerExited:  e.PointerExited(r.token); break;
                     }
@@ -1156,6 +1175,11 @@ static DWORD WINAPI StopWatchThread(LPVOID)
             CloseHandle(ev);
             ev = nullptr;
         }
+    }
+    if (g_rightClickEvent)
+    {
+        CloseHandle(g_rightClickEvent);
+        g_rightClickEvent = nullptr;
     }
 
     // 给已派发到 UI 线程的 RunAsync 一点执行完毕的时间
@@ -1182,6 +1206,11 @@ static void EnsureRuntimeServices()
         g_clickEvents[1] = CreateEventW(nullptr, FALSE, FALSE, L"SimpleCalendar_ClockClicked_Calendar");
         g_clickEvents[2] = CreateEventW(nullptr, FALSE, FALSE, L"SimpleCalendar_ClockClicked_Weather");
         Log(L"Click events (re)created");
+    }
+    if (!g_rightClickEvent)
+    {
+        g_rightClickEvent = CreateEventW(nullptr, FALSE, FALSE, L"SimpleCalendar_ClockClicked_RightClick");
+        Log(L"Right click event (re)created");
     }
 
     if (!g_running.exchange(true))

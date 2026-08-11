@@ -92,6 +92,7 @@ public partial class App : System.Windows.Application
                         ClickDebugLog($"zone={zone} 处理异常: {ex}");
                     }
                 });
+                ClockHookManager.ClockRightClicked += () => Dispatcher.Invoke(ShowClockContextMenu);
                 ClockHookManager.StartClickListener();
                 Debug.WriteLine("[App] 时钟 Hook 安装成功，使用系统时钟原位替换");
             }
@@ -637,6 +638,54 @@ public partial class App : System.Windows.Application
         }
         win.Show();
         win.Activate();
+    }
+
+    /// <summary>在任务栏时钟区弹出右键菜单（Hook 替换系统时钟时使用）</summary>
+    private void ShowClockContextMenu()
+    {
+        try
+        {
+            var menu = new WpfControls.ContextMenu();
+
+            var settingsItem = new WpfControls.MenuItem { Header = "设置" };
+            settingsItem.Click += (s, args) =>
+            {
+                var settingsWindow = new Windows.SettingsWindow();
+                if (settingsWindow.ShowDialog() == true)
+                {
+                    _clockWindow?.ReloadSettings();
+                    _clockWindow?.ClockControl?.ReloadSettingsAndApply();
+                    _monitorWindow?.ReloadSettings();
+                }
+            };
+            menu.Items.Add(settingsItem);
+
+            var monitorItem = new WpfControls.MenuItem { Header = "📊 监控面板" };
+            monitorItem.Click += (s, args) => ShowMonitorWindow();
+            menu.Items.Add(monitorItem);
+
+            menu.Items.Add(new WpfControls.Separator());
+
+            var exitItem = new WpfControls.MenuItem { Header = "退出" };
+            exitItem.Click += (s, args) => Shutdown();
+            menu.Items.Add(exitItem);
+
+            // 定位到任务栏时钟附近
+            var taskbar = NativeMethods.FindWindow("Shell_TrayWnd", null);
+            if (taskbar != IntPtr.Zero && NativeMethods.GetWindowRect(taskbar, out var rect))
+            {
+                menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Absolute;
+                menu.HorizontalOffset = rect.Right - 160;
+                menu.VerticalOffset = rect.Top - 4;
+                if (rect.Top > SystemParameters.WorkArea.Height * 0.7)
+                    menu.VerticalOffset = rect.Top - 120;
+            }
+            menu.IsOpen = true;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[App] 显示时钟右键菜单失败: {ex.Message}");
+        }
     }
 
     private void ToggleCalendar()

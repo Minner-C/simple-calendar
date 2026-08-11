@@ -287,6 +287,11 @@ public static class ClockHookManager
     /// <summary>时钟被点击时触发，参数为区域（0=AI 1=日历 2=天气）。在工作线程上，订阅方需自行切到 UI 线程</summary>
     public static event Action<int>? ClockClicked;
 
+    /// <summary>时钟任意区域被右键点击时触发。在工作线程上，订阅方需自行切到 UI 线程</summary>
+    public static event Action? ClockRightClicked;
+
+    private static Thread? _rightClickThread;
+
     public static void StartClickListener()
     {
         if (_clickThread != null) return;
@@ -317,5 +322,31 @@ public static class ClockHookManager
         })
         { IsBackground = true, Name = "ClockClickListener" };
         _clickThread.Start();
+
+        if (_rightClickThread != null) return;
+        _rightClickThread = new Thread(() =>
+        {
+            IntPtr handle = CreateEvent(IntPtr.Zero, false, false, "SimpleCalendar_ClockClicked_RightClick");
+            if (handle == IntPtr.Zero)
+            {
+                Log("右键点击事件句柄创建失败，监听线程退出");
+                return;
+            }
+            Log("右键点击监听线程已启动");
+
+            while (true)
+            {
+                uint ret = WaitForMultipleObjects(1, new[] { handle }, false, INFINITE);
+                if (ret != WAIT_OBJECT_0)
+                {
+                    Log($"右键等待返回异常: 0x{ret:X8}");
+                    continue;
+                }
+                Log("右键点击事件到达");
+                try { ClockRightClicked?.Invoke(); } catch { }
+            }
+        })
+        { IsBackground = true, Name = "ClockRightClickListener" };
+        _rightClickThread.Start();
     }
 }
