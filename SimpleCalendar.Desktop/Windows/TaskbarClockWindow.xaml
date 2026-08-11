@@ -12,6 +12,6 @@
         Topmost="True"
         ShowActivated="False"
         MouseLeftButtonDown="Window_MouseLeftButtonDown"
-        MouseRightButtonDown="Window_MouseRightButtonDown">
+        PreviewMouseRightButtonDown="Window_PreviewMouseRightButtonDown">
     <local:TaskbarClockControl x:Name="ClockControl"/>
 </Window>

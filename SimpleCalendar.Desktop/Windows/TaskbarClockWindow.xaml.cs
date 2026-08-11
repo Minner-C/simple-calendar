@@ -202,9 +202,10 @@ public partial class TaskbarClockWindow : Window
         ClockControl?.HandleWindowClick(e);
     }
 
-    private void Window_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    private void Window_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
         ClockControl?.HandleWindowRightClick(e);
+        e.Handled = true;
     }
 
     public void ReloadSettings()

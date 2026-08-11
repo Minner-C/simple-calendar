@@ -510,7 +510,8 @@ public partial class App : System.Windows.Application
                     {
                         try
                         {
-                            ShowAppContextMenu(_clockWindow);
+                            var cursorPos = System.Windows.Forms.Cursor.Position;
+                            ShowAppContextMenu(_clockWindow, cursorPos.X, cursorPos.Y);
                         }
                         catch (Exception ex)
                         {
@@ -596,35 +597,47 @@ public partial class App : System.Windows.Application
     }
 
     /// <summary>显示应用全局右键菜单（设置/监控面板/退出），复用于任务栏时钟区、托盘区等。</summary>
-    public void ShowAppContextMenu(UIElement placementTarget, double? absoluteX = null, double? absoluteY = null)
+    /// <param name="placementTarget">用于确定弹出框坐标系的参考元素，通常传当前窗口。</param>
+    /// <param name="absoluteScreenX">绝对屏幕 X 坐标；为 null 时使用鼠标当前位置。</param>
+    /// <param name="absoluteScreenY">绝对屏幕 Y 坐标；为 null 时使用鼠标当前位置。</param>
+    public void ShowAppContextMenu(UIElement placementTarget, double? absoluteScreenX = null, double? absoluteScreenY = null)
     {
-        var menu = new WpfControls.ContextMenu();
+        var menu = new WpfControls.ContextMenu
+        {
+            Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0xF0, 0x2A, 0x2A, 0x38)),
+            Foreground = new SolidColorBrush(Colors.White),
+            BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(4)
+        };
 
-        var settingsItem = new WpfControls.MenuItem { Header = "⚙️ 设置" };
+        var settingsItem = new WpfControls.MenuItem { Header = "⚙️ 设置", Foreground = new SolidColorBrush(Colors.White) };
         settingsItem.Click += (s, e) => OpenSettings();
         menu.Items.Add(settingsItem);
 
+        bool monitorVisible = _monitorWindow != null && _monitorWindow.IsVisible;
         var monitorItem = new WpfControls.MenuItem
         {
             Header = "👁️ 监控面板",
             IsCheckable = true,
-            IsChecked = _monitorWindow != null && _monitorWindow.IsVisible
+            IsChecked = monitorVisible,
+            Foreground = new SolidColorBrush(Colors.White)
         };
         monitorItem.Click += (s, e) => ToggleMonitorWindow();
         menu.Items.Add(monitorItem);
 
         menu.Items.Add(new WpfControls.Separator());
 
-        var exitItem = new WpfControls.MenuItem { Header = "🚪 退出" };
+        var exitItem = new WpfControls.MenuItem { Header = "🚪 退出", Foreground = new SolidColorBrush(Colors.White) };
         exitItem.Click += (s, e) => Shutdown();
         menu.Items.Add(exitItem);
 
         menu.PlacementTarget = placementTarget;
-        if (absoluteX.HasValue && absoluteY.HasValue)
+        if (absoluteScreenX.HasValue && absoluteScreenY.HasValue)
         {
             menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Absolute;
-            menu.HorizontalOffset = absoluteX.Value;
-            menu.VerticalOffset = absoluteY.Value;
+            menu.HorizontalOffset = absoluteScreenX.Value;
+            menu.VerticalOffset = absoluteScreenY.Value;
         }
         else
         {
