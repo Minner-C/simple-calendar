@@ -332,8 +332,8 @@ public partial class TaskbarClockControl : System.Windows.Controls.UserControl
     {
         if (System.Windows.Application.Current is SimpleCalendar.App app)
         {
-            var placementTarget = Window.GetWindow(this) as UIElement ?? this;
-            app.ShowAppContextMenu(placementTarget);
+            // 使用绝对屏幕坐标弹出，不依赖窗口可见性
+            app.ShowAppContextMenu(null);
         }
     }
 

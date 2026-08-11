@@ -21,6 +21,8 @@ public partial class App : System.Windows.Application
     private ScheduleReminderService? _reminderService;
     private MeetingAppWatcher? _meetingWatcher;
     private MonitorWindow? _monitorWindow;
+    /// <summary>不可见的菜单宿主窗口，用于托盘区/Hook时钟区等无可见WPF窗口场景的右键菜单</summary>
+    private Window? _menuHostWindow;
 
     static App()
     {
@@ -110,6 +112,18 @@ public partial class App : System.Windows.Application
             _clockWindow.Show();
             }
             Debug.WriteLine("[App] 浮动时钟窗口已创建");
+
+            // 创建不可见的菜单宿主窗口，用于托盘区/Hook时钟区等无可见WPF窗口场景的右键菜单
+            _menuHostWindow = new Window
+            {
+                Width = 0,
+                Height = 0,
+                WindowStyle = WindowStyle.None,
+                ShowInTaskbar = false,
+                ShowActivated = false,
+                Visibility = Visibility.Hidden
+            };
+            _menuHostWindow.Show();
 
             // 任务栏监控：Hook 成功时默认在任务栏左侧显示监控（与注入时钟区分离，不在时钟区）
             if (hookInstalled && settings.MonitorEnabled)
@@ -511,7 +525,7 @@ public partial class App : System.Windows.Application
                         try
                         {
                             var cursorPos = System.Windows.Forms.Cursor.Position;
-                            ShowAppContextMenu(_clockWindow, cursorPos.X, cursorPos.Y);
+                            ShowAppContextMenu(null, cursorPos.X, cursorPos.Y);
                         }
                         catch (Exception ex)
                         {
@@ -596,54 +610,67 @@ public partial class App : System.Windows.Application
         win.Activate();
     }
 
-    /// <summary>显示应用全局右键菜单（设置/监控面板/退出），复用于任务栏时钟区、托盘区等。</summary>
-    /// <param name="placementTarget">用于确定弹出框坐标系的参考元素，通常传当前窗口。</param>
+    /// <summary>显示应用全局右键菜单（设置/监控面板/退出），复用于任务栏时钟区、托盘区、监控窗口等。</summary>
+    /// <param name="placementTarget">菜单参考元素；传 null 时使用不可见宿主窗口。</param>
     /// <param name="absoluteScreenX">绝对屏幕 X 坐标；为 null 时使用鼠标当前位置。</param>
     /// <param name="absoluteScreenY">绝对屏幕 Y 坐标；为 null 时使用鼠标当前位置。</param>
-    public void ShowAppContextMenu(UIElement placementTarget, double? absoluteScreenX = null, double? absoluteScreenY = null)
+    public void ShowAppContextMenu(UIElement? placementTarget, double? absoluteScreenX = null, double? absoluteScreenY = null)
     {
-        var menu = new WpfControls.ContextMenu
+        try
         {
-            Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0xF0, 0x2A, 0x2A, 0x38)),
-            Foreground = new SolidColorBrush(Colors.White),
-            BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)),
-            BorderThickness = new Thickness(1),
-            Padding = new Thickness(4)
-        };
+            // 确保菜单宿主窗口已创建（托盘区/Hook时钟区场景下可能没有可见WPF窗口）
+            if (_menuHostWindow == null)
+            {
+                _menuHostWindow = new Window
+                {
+                    Width = 0,
+                    Height = 0,
+                    WindowStyle = WindowStyle.None,
+                    ShowInTaskbar = false,
+                    ShowActivated = false,
+                    Visibility = Visibility.Hidden
+                };
+                _menuHostWindow.Show();
+            }
 
-        var settingsItem = new WpfControls.MenuItem { Header = "⚙️ 设置", Foreground = new SolidColorBrush(Colors.White) };
-        settingsItem.Click += (s, e) => OpenSettings();
-        menu.Items.Add(settingsItem);
+            // 使用 WPF ContextMenu，与监控窗口右键菜单保持同一套交互和样式
+            var menu = new WpfControls.ContextMenu();
 
-        bool monitorVisible = _monitorWindow != null && _monitorWindow.IsVisible;
-        var monitorItem = new WpfControls.MenuItem
-        {
-            Header = "👁️ 监控面板",
-            IsCheckable = true,
-            IsChecked = monitorVisible,
-            Foreground = new SolidColorBrush(Colors.White)
-        };
-        monitorItem.Click += (s, e) => ToggleMonitorWindow();
-        menu.Items.Add(monitorItem);
+            var settingsItem = new WpfControls.MenuItem { Header = "⚙️ 设置" };
+            settingsItem.Click += (s, e) => OpenSettings();
+            menu.Items.Add(settingsItem);
 
-        menu.Items.Add(new WpfControls.Separator());
+            bool monitorVisible = _monitorWindow != null && _monitorWindow.IsVisible;
+            var monitorItem = new WpfControls.MenuItem
+            {
+                Header = monitorVisible ? "👁️ 隐藏监控面板" : "👁️ 监控面板"
+            };
+            monitorItem.Click += (s, e) => ToggleMonitorWindow();
+            menu.Items.Add(monitorItem);
 
-        var exitItem = new WpfControls.MenuItem { Header = "🚪 退出", Foreground = new SolidColorBrush(Colors.White) };
-        exitItem.Click += (s, e) => Shutdown();
-        menu.Items.Add(exitItem);
+            menu.Items.Add(new WpfControls.Separator());
 
-        menu.PlacementTarget = placementTarget;
-        if (absoluteScreenX.HasValue && absoluteScreenY.HasValue)
-        {
-            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Absolute;
-            menu.HorizontalOffset = absoluteScreenX.Value;
-            menu.VerticalOffset = absoluteScreenY.Value;
-        }
-        else
-        {
+            var exitItem = new WpfControls.MenuItem { Header = "🚪 退出" };
+            exitItem.Click += (s, e) => Shutdown();
+            menu.Items.Add(exitItem);
+
+            // 使用不可见宿主窗口作为 PlacementTarget，确保菜单在任何场景都能弹出
+            menu.PlacementTarget = placementTarget ?? _menuHostWindow;
             menu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+
+            if (absoluteScreenX.HasValue && absoluteScreenY.HasValue)
+            {
+                menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Absolute;
+                menu.HorizontalOffset = absoluteScreenX.Value;
+                menu.VerticalOffset = absoluteScreenY.Value;
+            }
+
+            menu.IsOpen = true;
         }
-        menu.IsOpen = true;
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[App] 显示右键菜单异常: {ex.Message}");
+        }
     }
 
     private void OpenSettings()
@@ -709,11 +736,11 @@ public partial class App : System.Windows.Application
                 if (tbTop > workAreaHeight * 0.7)
                     y = tbTop - 120;
 
-                ShowAppContextMenu(_clockWindow, x, y);
+                ShowAppContextMenu(null, x, y);
             }
             else
             {
-                ShowAppContextMenu(_clockWindow);
+                ShowAppContextMenu(null);
             }
         }
         catch (Exception ex)

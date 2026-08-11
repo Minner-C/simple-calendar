@@ -733,43 +733,13 @@ public partial class MonitorWindow : Window
         e.Handled = true;
     }
 
-    /// <summary>显示监控窗口右键菜单</summary>
+    /// <summary>显示监控窗口右键菜单（复用 App 全局右键菜单，保持统一交互）</summary>
     private void ShowMonitorContextMenu()
     {
-        var menu = new System.Windows.Controls.ContextMenu();
-
-        var settingsItem = new System.Windows.Controls.MenuItem { Header = "⚙️ 设置" };
-        settingsItem.Click += (s, e) =>
+        if (System.Windows.Application.Current is SimpleCalendar.App app)
         {
-            try
-            {
-                var settingsWindow = new SettingsWindow();
-                if (settingsWindow.ShowDialog() == true)
-                {
-                    ReloadSettings();
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Windows.MessageBox.Show($"打开设置失败：{ex.Message}", "错误",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        };
-        menu.Items.Add(settingsItem);
-
-        var hideItem = new System.Windows.Controls.MenuItem { Header = "👁️ 隐藏监控面板" };
-        hideItem.Click += (s, e) => this.Close();
-        menu.Items.Add(hideItem);
-
-        menu.Items.Add(new System.Windows.Controls.Separator());
-
-        var exitItem = new System.Windows.Controls.MenuItem { Header = "🚪 退出" };
-        exitItem.Click += (s, e) => System.Windows.Application.Current.Shutdown();
-        menu.Items.Add(exitItem);
-
-        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
-        menu.PlacementTarget = this;
-        menu.IsOpen = true;
+            app.ShowAppContextMenu(this);
+        }
     }
 
     /// <summary>设置变更后刷新（重建行 + 重新定位 + 立即刷新一次数据）</summary>
