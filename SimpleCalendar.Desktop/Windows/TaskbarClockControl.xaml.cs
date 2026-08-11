@@ -330,44 +330,9 @@ public partial class TaskbarClockControl : System.Windows.Controls.UserControl
 
     private void ShowContextMenu()
     {
-        var menu = new System.Windows.Controls.ContextMenu();
-
-        var settingsItem = new System.Windows.Controls.MenuItem { Header = "设置" };
-        settingsItem.Click += (s, args) => OpenSettings();
-        menu.Items.Add(settingsItem);
-
-        // 硬件监控已迁移为独立窗口，由 App 统一管理单例
-        var monitorItem = new System.Windows.Controls.MenuItem { Header = "📊 监控面板" };
-        monitorItem.Click += (s, args) =>
+        if (System.Windows.Application.Current is SimpleCalendar.App app)
         {
-            if (System.Windows.Application.Current is SimpleCalendar.App app)
-                app.ShowMonitorWindow();
-        };
-        menu.Items.Add(monitorItem);
-
-        menu.Items.Add(new System.Windows.Controls.Separator());
-
-        var exitItem = new System.Windows.Controls.MenuItem { Header = "退出" };
-        exitItem.Click += (s, args) => System.Windows.Application.Current.Shutdown();
-        menu.Items.Add(exitItem);
-
-        menu.IsOpen = true;
-    }
-
-    private void OpenSettings()
-    {
-        try
-        {
-            var settingsWindow = new SettingsWindow();
-            if (settingsWindow.ShowDialog() == true)
-            {
-                ReloadSettingsAndApply();
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Windows.MessageBox.Show($"打开设置失败：{ex.Message}", "错误",
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            app.ShowAppContextMenu(this);
         }
     }
 

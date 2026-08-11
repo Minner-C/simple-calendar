@@ -481,71 +481,11 @@ public partial class App : System.Windows.Application
                 _notifyIcon.Icon = System.Drawing.SystemIcons.Information;
             }
             Debug.WriteLine($"[TrayIcon] NotifyIcon 已创建，Visible={_notifyIcon.Visible}");
-            var menu = new System.Windows.Forms.ContextMenuStrip();
-            
-            // 设置菜单项（与窗口区右键菜单一致）
-            var settingsItem = new System.Windows.Forms.ToolStripMenuItem("设置");
-            settingsItem.Click += (s, ev) => Dispatcher.Invoke(() =>
-            {
-                try
-                {
-                    var settingsWindow = new Windows.SettingsWindow();
-                    if (settingsWindow.ShowDialog() == true)
-                    {
-                        _clockWindow?.ReloadSettings();
-                        _clockWindow?.ClockControl?.ReloadSettingsAndApply();
-                        _monitorWindow?.ReloadSettings();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[TrayIcon] 打开设置失败: {ex.Message}");
-                }
-            });
-            menu.Items.Add(settingsItem);
 
-            // 硬件监控菜单项（带勾选状态，切换独立监控窗口）
-            var monitorItem = new System.Windows.Forms.ToolStripMenuItem("📊 硬件监控");
-            monitorItem.Click += (s, ev) => Dispatcher.Invoke(() =>
-            {
-                try
-                {
-                    if (_monitorWindow != null && _monitorWindow.IsVisible)
-                    {
-                        _monitorWindow.Close();
-                        monitorItem.Checked = false;
-                    }
-                    else
-                    {
-                        ShowMonitorWindow();
-                        monitorItem.Checked = true;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[TrayIcon] 切换监控失败: {ex}");
-                    System.Windows.MessageBox.Show($"打开监控窗口失败：\n{ex}", "诊断",
-                        System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-                }
-            });
-            menu.Items.Add(monitorItem);
+            // 托盘不再使用 WinForms 原生菜单，统一使用与浮窗区一致的 WPF ContextMenu
+            _notifyIcon.ContextMenuStrip = null;
 
-            // 菜单打开时同步监控窗口显示状态
-            menu.Opening += (s, ev) =>
-            {
-                monitorItem.Checked = _monitorWindow != null && _monitorWindow.IsVisible;
-            };
-
-            menu.Items.Add("-");
-
-            // 退出菜单项
-            var exitItem = new System.Windows.Forms.ToolStripMenuItem("退出");
-            exitItem.Click += ExitItem_Click;
-            menu.Items.Add(exitItem);
-        
-            _notifyIcon.ContextMenuStrip = menu;
-            
-            // 左键单击：打开日历（与窗口区左键一致）
+            // 左键单击打开日历；右键单击弹出 WPF 菜单
             _notifyIcon.MouseClick += (s, ev) =>
             {
                 if (ev.Button == MouseButtons.Left)
@@ -560,6 +500,21 @@ public partial class App : System.Windows.Application
                         catch (Exception ex)
                         {
                             Debug.WriteLine($"[TrayIcon] 打开日历失败: {ex.Message}");
+                        }
+                    });
+                }
+                else if (ev.Button == MouseButtons.Right)
+                {
+                    Debug.WriteLine("[TrayIcon] 托盘图标被右键单击");
+                    Dispatcher.Invoke(() =>
+                    {
+                        try
+                        {
+                            ShowAppContextMenu(_clockWindow);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"[TrayIcon] 打开右键菜单失败: {ex.Message}");
                         }
                     });
                 }
@@ -640,47 +595,113 @@ public partial class App : System.Windows.Application
         win.Activate();
     }
 
+    /// <summary>显示应用全局右键菜单（设置/监控面板/退出），复用于任务栏时钟区、托盘区等。</summary>
+    public void ShowAppContextMenu(UIElement placementTarget, double? absoluteX = null, double? absoluteY = null)
+    {
+        var menu = new WpfControls.ContextMenu();
+
+        var settingsItem = new WpfControls.MenuItem { Header = "⚙️ 设置" };
+        settingsItem.Click += (s, e) => OpenSettings();
+        menu.Items.Add(settingsItem);
+
+        var monitorItem = new WpfControls.MenuItem
+        {
+            Header = "👁️ 监控面板",
+            IsCheckable = true,
+            IsChecked = _monitorWindow != null && _monitorWindow.IsVisible
+        };
+        monitorItem.Click += (s, e) => ToggleMonitorWindow();
+        menu.Items.Add(monitorItem);
+
+        menu.Items.Add(new WpfControls.Separator());
+
+        var exitItem = new WpfControls.MenuItem { Header = "🚪 退出" };
+        exitItem.Click += (s, e) => Shutdown();
+        menu.Items.Add(exitItem);
+
+        menu.PlacementTarget = placementTarget;
+        if (absoluteX.HasValue && absoluteY.HasValue)
+        {
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Absolute;
+            menu.HorizontalOffset = absoluteX.Value;
+            menu.VerticalOffset = absoluteY.Value;
+        }
+        else
+        {
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+        }
+        menu.IsOpen = true;
+    }
+
+    private void OpenSettings()
+    {
+        try
+        {
+            var settingsWindow = new Windows.SettingsWindow();
+            if (settingsWindow.ShowDialog() == true)
+            {
+                _clockWindow?.ReloadSettings();
+                _clockWindow?.ClockControl?.ReloadSettingsAndApply();
+                _monitorWindow?.ReloadSettings();
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[App] 打开设置失败: {ex.Message}");
+        }
+    }
+
+    private void ToggleMonitorWindow()
+    {
+        try
+        {
+            if (_monitorWindow != null && _monitorWindow.IsVisible)
+            {
+                _monitorWindow.Close();
+            }
+            else
+            {
+                ShowMonitorWindow();
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[App] 切换监控窗口失败: {ex.Message}");
+        }
+    }
+
     /// <summary>在任务栏时钟区弹出右键菜单（Hook 替换系统时钟时使用）</summary>
     private void ShowClockContextMenu()
     {
         try
         {
-            var menu = new WpfControls.ContextMenu();
-
-            var settingsItem = new WpfControls.MenuItem { Header = "设置" };
-            settingsItem.Click += (s, args) =>
-            {
-                var settingsWindow = new Windows.SettingsWindow();
-                if (settingsWindow.ShowDialog() == true)
-                {
-                    _clockWindow?.ReloadSettings();
-                    _clockWindow?.ClockControl?.ReloadSettingsAndApply();
-                    _monitorWindow?.ReloadSettings();
-                }
-            };
-            menu.Items.Add(settingsItem);
-
-            var monitorItem = new WpfControls.MenuItem { Header = "📊 监控面板" };
-            monitorItem.Click += (s, args) => ShowMonitorWindow();
-            menu.Items.Add(monitorItem);
-
-            menu.Items.Add(new WpfControls.Separator());
-
-            var exitItem = new WpfControls.MenuItem { Header = "退出" };
-            exitItem.Click += (s, args) => Shutdown();
-            menu.Items.Add(exitItem);
-
-            // 定位到任务栏时钟附近
             var taskbar = NativeMethods.FindWindow("Shell_TrayWnd", null);
             if (taskbar != IntPtr.Zero && NativeMethods.GetWindowRect(taskbar, out var rect))
             {
-                menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Absolute;
-                menu.HorizontalOffset = rect.Right - 160;
-                menu.VerticalOffset = rect.Top - 4;
-                if (rect.Top > SystemParameters.WorkArea.Height * 0.7)
-                    menu.VerticalOffset = rect.Top - 120;
+                double dpiScale = 1.0;
+                try
+                {
+                    var source = PresentationSource.FromVisual(_clockWindow);
+                    if (source?.CompositionTarget != null)
+                        dpiScale = source.CompositionTarget.TransformFromDevice.M11;
+                }
+                catch { }
+
+                double tbRight = rect.Right / dpiScale;
+                double tbTop = rect.Top / dpiScale;
+                double workAreaHeight = SystemParameters.WorkArea.Height;
+
+                double x = tbRight - 160;
+                double y = tbTop - 4;
+                if (tbTop > workAreaHeight * 0.7)
+                    y = tbTop - 120;
+
+                ShowAppContextMenu(_clockWindow, x, y);
             }
-            menu.IsOpen = true;
+            else
+            {
+                ShowAppContextMenu(_clockWindow);
+            }
         }
         catch (Exception ex)
         {
