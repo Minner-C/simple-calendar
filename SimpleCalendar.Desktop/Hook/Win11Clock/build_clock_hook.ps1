@@ -22,7 +22,7 @@ New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 $cmd = @"
 call "$vcvarsall" x64 >nul 2>&1
 cd /d "$stageDir"
-cl.exe /LD /EHsc /std:c++20 /O2 /utf-8 /DHOOK_STAGE=$Stage /Fe:ClockHookDll.dll ClockHookDll.cpp /link ole32.lib oleaut32.lib runtimeobject.lib advapi32.lib /GUARD:NO /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF
+cl.exe /LD /EHsc /std:c++20 /O2 /utf-8 /DHOOK_STAGE=$Stage /Fe:ClockHookDll.dll ClockHookDll.cpp /link user32.lib ole32.lib oleaut32.lib runtimeobject.lib advapi32.lib oleacc.lib /GUARD:NO /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF
 if errorlevel 1 exit /b 1
 cl.exe /EHsc /std:c++20 /O2 /utf-8 /Fe:ClockHookHost.exe ClockHookHost.cpp /link user32.lib /SUBSYSTEM:CONSOLE
 if errorlevel 1 exit /b 1

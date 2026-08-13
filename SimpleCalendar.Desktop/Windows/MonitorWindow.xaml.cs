@@ -582,18 +582,18 @@ public partial class MonitorWindow : Window
                     _gpuTempValue.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x90, 0x90, 0xA0));
                 }
             }
+
+            // Token：AI CLI Hub 今日 token 消耗（进度条按设置的日额度为满格参考值，默认 1 千万）
             if (_tokenBar != null && _tokenValue != null)
             {
-                long threshold = TokenUsageManager.GetDailyThreshold();
-                if (threshold < 1) threshold = 1;
-                long todayTokens = TokenUsageManager.GetTodayTokens();
-                double ratio = (double)todayTokens / threshold;
-                if (ratio > 1.0) ratio = 1.0;
+                long dailyQuota = _settings.TokenDailyQuota > 0 ? _settings.TokenDailyQuota : 10_000_000;
+                long todayTokens = AIHubUsageReader.GetTodayTokens();
+                double ratio = Math.Min(1.0, (double)todayTokens / dailyQuota);
                 var c = isMono ? GetMonoColor() : GetUsageColor((float)(ratio * 100));
-                _tokenBar.Maximum = threshold;
-                _tokenBar.Value = todayTokens > threshold ? threshold : todayTokens;
+                _tokenBar.Maximum = dailyQuota;
+                _tokenBar.Value = todayTokens;
                 _tokenBar.Foreground = c;
-                _tokenValue.Text = TokenUsageManager.FormatTokens(todayTokens);
+                _tokenValue.Text = AIHubUsageReader.FormatTokens(todayTokens);
                 _tokenValue.Foreground = c;
             }
 
@@ -704,7 +704,7 @@ public partial class MonitorWindow : Window
 
         if (_settings.MonitorShowToken)
         {
-            lines.Add($"今日 Token: {TokenUsageManager.FormatTokens(TokenUsageManager.GetTodayTokens())} / {TokenUsageManager.FormatTokens(TokenUsageManager.GetDailyThreshold())}");
+            lines.Add($"今日 Token: {AIHubUsageReader.FormatTokens(AIHubUsageReader.GetTodayTokens())}（AI CLI Hub）");
         }
 
         if (_settings.MonitorShowVolume)

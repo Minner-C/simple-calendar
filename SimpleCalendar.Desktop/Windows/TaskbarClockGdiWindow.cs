@@ -42,7 +42,6 @@ public class TaskbarClockGdiWindow : IDisposable
 
     // 弹出窗口引用
     private CalendarPopupWindow? _calendarPopup;
-    private AIChatWindow? _aiChatWindow;
 
     // 区域定义（用于点击检测）
     private NativeMethods.RECT _aiIconRect;
@@ -485,7 +484,10 @@ public class TaskbarClockGdiWindow : IDisposable
         int x = lParam.ToInt32() & 0xFFFF;
 
         if (x >= _aiIconRect.Left && x <= _aiIconRect.Right)
-            ToggleAIChat();
+        {
+            // AI 功能由 ai-cli-hub 提供
+            System.Windows.Application.Current.Dispatcher.Invoke(() => AIHubLauncher.Toggle());
+        }
         else
             ToggleCalendar();
     }
@@ -604,61 +606,6 @@ public class TaskbarClockGdiWindow : IDisposable
         catch (Exception ex)
         {
             LogDebug($"[GdiClock] ToggleCalendar异常: {ex.Message}");
-        }
-    }
-
-    private void ToggleAIChat()
-    {
-        try
-        {
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-            {
-                if (_aiChatWindow != null)
-                {
-                    if (_aiChatWindow.IsClosingAnimated)
-                    {
-                        _aiChatWindow.CancelCloseAnimation();
-                        _aiChatWindow.Activate();
-                    }
-                    else if (_aiChatWindow.IsVisible)
-                    {
-                        _aiChatWindow.AnimateClose();
-                    }
-                    else
-                    {
-                        // 窗口已隐藏（后台运行中）：重新显示
-                        _aiChatWindow.Show();
-                        _aiChatWindow.Activate();
-                    }
-                }
-                else
-                {
-                    _aiChatWindow = new AIChatWindow();
-                    _aiChatWindow.Closed += (_, _) => { _aiChatWindow = null; };
-
-                    NativeMethods.GetWindowRect(_hwnd, out var rect);
-                    double scaleX = _dpiScale;
-
-                    _aiChatWindow.Left = (rect.Right - _aiChatWindow.Width * scaleX) / scaleX;
-                    _aiChatWindow.Top = (rect.Top - _aiChatWindow.Height * scaleX - 4) / scaleX;
-
-                    var screen = SystemParameters.WorkArea;
-                    if (_aiChatWindow.Left < screen.Left + 8) _aiChatWindow.Left = screen.Left + 8;
-                    if (_aiChatWindow.Top < screen.Top + 8)
-                    {
-                        _aiChatWindow.Top = (rect.Bottom + 4) / scaleX;
-                        if (_aiChatWindow.Top + _aiChatWindow.Height > screen.Bottom - 8)
-                            _aiChatWindow.Top = screen.Bottom - _aiChatWindow.Height - 8;
-                    }
-
-                    _aiChatWindow.Show();
-                    _aiChatWindow.Activate();
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            LogDebug($"[GdiClock] ToggleAIChat异常: {ex.Message}");
         }
     }
 

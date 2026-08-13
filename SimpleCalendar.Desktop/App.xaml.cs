@@ -6,8 +6,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using SimpleCalendar.Helpers;
-using SimpleCalendar.Helpers.MCP;
-using SimpleCalendar.Helpers.Skills;
 using SimpleCalendar.Windows;
 using WpfControls = System.Windows.Controls;
 
@@ -63,6 +61,9 @@ public partial class App : System.Windows.Application
             var settings = ClockSettingsManager.LoadSettings();
             ThemeManager.ApplyTheme(settings.ThemeMode);
             Debug.WriteLine($"[App] 主题已应用: {settings.ThemeMode}");
+
+            // 后台同步节假日数据（线上优先，本地缓存/内置数据兜底）
+            _ = HolidaySyncService.SyncAsync();
             
             // 初始化系统托盘
             Debug.WriteLine("[App] 正在初始化托盘图标...");
@@ -82,7 +83,7 @@ public partial class App : System.Windows.Application
                         ClickDebugLog($"收到时钟点击事件 zone={zone}");
                         switch (zone)
                         {
-                            case 0: _clockWindow?.ClockControl?.ToggleAIChat(); break;
+                            case 0: AIHubLauncher.Toggle(); break;
                             case 1: _clockWindow?.ClockControl?.OpenCalendar(); break;
                             case 2: _clockWindow?.ClockControl?.OpenWeatherDetail(); break;
                         }
@@ -143,26 +144,6 @@ public partial class App : System.Windows.Application
             _meetingWatcher.MeetingAppDetected += OnMeetingAppDetected;
             _meetingWatcher.Start();
             Debug.WriteLine("[App] 会议软件监听已启动");
-
-            // 后台初始化MCP服务器和Skills（不阻塞启动）
-            System.Threading.Tasks.Task.Run(async () =>
-            {
-                try
-                {
-                    Debug.WriteLine("[App] 正在加载Skills...");
-                    SkillLoader.LoadAll();
-                    SkillLoader.CreateExampleSkill();
-                    Debug.WriteLine("[App] Skills加载完成");
-
-                    Debug.WriteLine("[App] 正在初始化MCP服务器...");
-                    await McpServerManager.InitializeAsync();
-                    Debug.WriteLine("[App] MCP服务器初始化完成");
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[App] MCP/Skills初始化失败: {ex.Message}");
-                }
-            });
 
             Debug.WriteLine("[App] === 启动完成 ===");
         }
@@ -228,7 +209,7 @@ public partial class App : System.Windows.Application
                 if (_notifyIcon != null)
                 {
                     _notifyIcon.BalloonTipTitle = $"检测到 {displayName} 已启动";
-                    _notifyIcon.BalloonTipText = "是否需要开启会议纪要？\n点击此处打开AI会议纪要助手";
+                    _notifyIcon.BalloonTipText = "是否需要开启会议纪要？\n点击此处打开 AI CLI Hub";
                     _notifyIcon.BalloonTipIcon = System.Windows.Forms.ToolTipIcon.Info;
                     _notifyIcon.ShowBalloonTip(15000);
                 }
@@ -363,7 +344,7 @@ public partial class App : System.Windows.Application
             // 描述文字
             var descText = new System.Windows.Controls.TextBlock
             {
-                Text = "是否开启会议纪要？可自动录音、转写、整理纪要并导出Word文档。",
+                Text = "是否开启会议纪要？将通过 AI CLI Hub 进行录音、转写和纪要整理。",
                 FontSize = 12,
                 Foreground = new System.Windows.Media.SolidColorBrush(textMuted),
                 TextWrapping = TextWrapping.Wrap,
@@ -452,11 +433,12 @@ public partial class App : System.Windows.Application
             {
                 try
                 {
-                    _clockWindow?.ClockControl?.OpenMeetingAgent();
+                    // 会议纪要功能由 ai-cli-hub 提供
+                    AIHubLauncher.Toggle();
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[MeetingWatcher] 打开会议纪要失败: {ex.Message}");
+                    Debug.WriteLine($"[MeetingWatcher] 启动 ai-cli-hub 失败: {ex.Message}");
                 }
             }
             parent.Close();
@@ -524,8 +506,9 @@ public partial class App : System.Windows.Application
                     {
                         try
                         {
-                            var cursorPos = System.Windows.Forms.Cursor.Position;
-                            ShowAppContextMenu(null, cursorPos.X, cursorPos.Y);
+                            // 不传绝对坐标（Cursor.Position 是物理像素，与 WPF 的 DIP 不一致会导致菜单位置偏移），
+                            // 使用 MousePoint 在鼠标位置弹出
+                            ShowAppContextMenu(null);
                         }
                         catch (Exception ex)
                         {
@@ -665,11 +648,56 @@ public partial class App : System.Windows.Application
                 menu.VerticalOffset = absoluteScreenY.Value;
             }
 
+            // 宿主窗口处于 Hidden 且从未激活时，菜单 Popup 无法获得焦点，
+            // 导致点击菜单外部不会自动关闭（只能点菜单项才能关掉）。
+            // 打开菜单前让宿主窗口可见并激活，使菜单拥有正常的失焦自动关闭行为。
+            // 注意：Hook 时钟区右键来自 explorer 内部的消息，本进程没有前台权限，
+            // 直接 Activate() 会被系统拒绝，需要用 AttachThreadInput 借前台线程的输入状态抢占前台。
+            if (placementTarget == null)
+            {
+                _menuHostWindow.Visibility = Visibility.Visible;
+                ForceForegroundWindow(_menuHostWindow);
+            }
+
             menu.IsOpen = true;
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"[App] 显示右键菜单异常: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 强制将窗口置为前台。通过 AttachThreadInput 附加到当前前台线程，
+    /// 绕过 SetForegroundWindow 的前台权限限制（Hook 时钟区右键等场景下本进程未收到输入）。
+    /// </summary>
+    private static void ForceForegroundWindow(Window window)
+    {
+        try
+        {
+            var hwnd = new System.Windows.Interop.WindowInteropHelper(window).Handle;
+            if (hwnd == IntPtr.Zero) return;
+
+            IntPtr foreground = NativeMethods.GetForegroundWindow();
+            uint foregroundThread = foreground != IntPtr.Zero
+                ? NativeMethods.GetWindowThreadProcessId(foreground, out _)
+                : 0;
+            uint currentThread = NativeMethods.GetCurrentThreadId();
+
+            bool attached = false;
+            if (foregroundThread != 0 && foregroundThread != currentThread)
+                attached = NativeMethods.AttachThreadInput(currentThread, foregroundThread, true);
+
+            NativeMethods.BringWindowToTop(hwnd);
+            NativeMethods.SetForegroundWindow(hwnd);
+            window.Activate();
+
+            if (attached)
+                NativeMethods.AttachThreadInput(currentThread, foregroundThread, false);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[App] 强制前台窗口失败: {ex.Message}");
         }
     }
 
@@ -710,38 +738,14 @@ public partial class App : System.Windows.Application
         }
     }
 
-    /// <summary>在任务栏时钟区弹出右键菜单（Hook 替换系统时钟时使用）</summary>
+    /// <summary>在任务栏时钟区弹出右键菜单（Hook 替换系统时钟时使用），与浮窗一致在鼠标位置弹出。</summary>
     private void ShowClockContextMenu()
     {
         try
         {
-            var taskbar = NativeMethods.FindWindow("Shell_TrayWnd", null);
-            if (taskbar != IntPtr.Zero && NativeMethods.GetWindowRect(taskbar, out var rect))
-            {
-                double dpiScale = 1.0;
-                try
-                {
-                    var source = PresentationSource.FromVisual(_clockWindow);
-                    if (source?.CompositionTarget != null)
-                        dpiScale = source.CompositionTarget.TransformFromDevice.M11;
-                }
-                catch { }
-
-                double tbRight = rect.Right / dpiScale;
-                double tbTop = rect.Top / dpiScale;
-                double workAreaHeight = SystemParameters.WorkArea.Height;
-
-                double x = tbRight - 160;
-                double y = tbTop - 4;
-                if (tbTop > workAreaHeight * 0.7)
-                    y = tbTop - 120;
-
-                ShowAppContextMenu(null, x, y);
-            }
-            else
-            {
-                ShowAppContextMenu(null);
-            }
+            // 不传绝对坐标，使用 PlacementMode.MousePoint 在鼠标当前位置弹出，
+            // 与监控浮窗的右键交互保持一致
+            ShowAppContextMenu(null);
         }
         catch (Exception ex)
         {

@@ -29,13 +29,7 @@ namespace SimpleCalendar.Helpers
             WeatherCity = "北京",
             GaodeWeatherKey = "",
             ApiUrl = "http://localhost:3001/api",
-            AIEnabled = false,
-            AIProvider = "openai",
-            AIApiUrl = "https://api.openai.com/v1",
-            AIModel = "gpt-4o-mini",
-            AIApiKey = "",
-            AISystemPrompt = "你是一个简洁高效的AI助手，回答要准确、精炼。",
-            DocumentOutputPath = "",
+            AIHubPath = "",
             MonitorEnabled = true,
             MonitorShowCpu = true,
             MonitorShowCpuTemp = true,
@@ -43,6 +37,8 @@ namespace SimpleCalendar.Helpers
             MonitorShowGpu = true,
             MonitorShowGpuTemp = true,
             MonitorColorMode = "color",
+            MonitorShowToken = false,
+            TokenDailyQuota = 10_000_000,
             MonitorShowVolume = false,
             MonitorShowBrightness = false
         };
@@ -186,26 +182,8 @@ namespace SimpleCalendar.Helpers
 
         // ===== AI 配置 =====
 
-        /// <summary>是否启用AI助手</summary>
-        public bool AIEnabled { get; set; } = false;
-
-        /// <summary>服务商预设: openai / deepseek / qwen / zhipu / custom</summary>
-        public string AIProvider { get; set; } = "openai";
-
-        /// <summary>API基础地址（OpenAI兼容）</summary>
-        public string AIApiUrl { get; set; } = "https://api.openai.com/v1";
-
-        /// <summary>模型名称</summary>
-        public string AIModel { get; set; } = "gpt-4o-mini";
-
-        /// <summary>API Key</summary>
-        public string AIApiKey { get; set; } = "";
-
-        /// <summary>系统提示词</summary>
-        public string AISystemPrompt { get; set; } = "你是一个简洁高效的AI助手，回答要准确、精炼。";
-
-        /// <summary>生成文档（Word/录音等）的输出目录，为空则使用默认目录（我的文档\SimpleCalendar\Documents）</summary>
-        public string DocumentOutputPath { get; set; } = "";
+        /// <summary>ai-cli-hub 程序路径；留空则自动探测常见安装位置</summary>
+        public string AIHubPath { get; set; } = "";
 
         // ===== 监控面板配置 =====
 
@@ -227,8 +205,11 @@ namespace SimpleCalendar.Helpers
         /// <summary>显示 GPU 温度（独立进度条，与使用率分离，需NVIDIA显卡）</summary>
         public bool MonitorShowGpuTemp { get; set; } = true;
 
-        /// <summary>显示 Token 用量统计</summary>
+        /// <summary>显示 Token 用量统计（AI CLI Hub 今日 token 消耗）</summary>
         public bool MonitorShowToken { get; set; } = false;
+
+        /// <summary>Token 日额度（监控面板 Token 进度条的满格参考值，默认 1 千万）</summary>
+        public long TokenDailyQuota { get; set; } = 10_000_000;
 
         /// <summary>显示音量调节进度条（可拖动调节系统音量）</summary>
         public bool MonitorShowVolume { get; set; } = false;

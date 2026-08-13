@@ -1,6 +1,6 @@
 # SimpleCalendar 简单日历
 
-一款 Windows 桌面工具，以任务栏时钟替换为核心，集成农历日历、日程管理、AI 助手、硬件监控等功能。支持 Win11 任务栏时钟 Hook 自定义显示，自带安装包，开箱即用。
+一款 Windows 桌面工具，以任务栏时钟替换为核心，集成农历日历、日程管理、硬件监控等功能。支持 Win11 任务栏时钟 Hook 自定义显示，自带安装包，开箱即用。AI 能力由开源项目 [ai-cli-hub](https://github.com/Minner-C/ai-cli-hub) 提供（点击任务栏 ✨ 即可启动）。
 
 > ⚠️ **重要声明：本项目采用 PolyForm Noncommercial License，禁止商业用途。转载请注明出处或原作者 Minner-C。**
 
@@ -40,13 +40,9 @@
 
 ### AI 助手
 
-- 内置聊天窗口，支持 Markdown 渲染
-- 多模型管理，可配置不同 AI 服务商
-- Agent 系统：自定义角色与工具链
-- MCP (Model Context Protocol) 支持，连接外部工具
-- 技能系统：可扩展的功能模块
-- 语音输入：支持讯飞实时语音转写
-- Token 用量统计
+- AI 功能由开源项目 [ai-cli-hub](https://github.com/Minner-C/ai-cli-hub) 提供，本项目不再内置 AI 聊天
+- 点击任务栏 ✨ 徽章或会议检测提示即可启动 ai-cli-hub
+- 设置页可配置 ai-cli-hub 程序路径，留空自动探测常见安装位置
 
 ### 系统监控
 
@@ -60,7 +56,6 @@
 - 开机自启动（设置页一键开关）
 - 深色 / 浅色主题
 - 系统托盘常驻
-- 一键导出聊天记录
 
 ## 安装
 
@@ -108,22 +103,19 @@ SimpleCalendar.Desktop/
 │   ├── Win32ClockWindow.cs        # 任务栏时钟窗口
 │   ├── ClockHookManager.cs       # Hook 管理
 │   ├── ClockSettingsManager.cs    # 设置管理 + 开机自启
-│   ├── AIService.cs               # AI 服务
-│   ├── AgentRunner.cs             # Agent 执行器
+│   ├── AIHubLauncher.cs           # ai-cli-hub 启动器（AI 功能入口）
 │   ├── HardwareMonitorService.cs  # 硬件监控
 │   ├── WeatherService.cs          # 天气服务
 │   ├── VolumeBrightnessHelper.cs  # 音量/亮度控制
-│   ├── ScheduleReminderService.cs # 日程提醒
-│   ├── MCP/                       # Model Context Protocol
-│   └── Skills/                    # 技能模块
+│   └── ScheduleReminderService.cs # 日程提醒
 ├── Windows/
 │   ├── TaskbarClockWindow.xaml    # 任务栏时钟
 │   ├── CalendarPopupWindow.xaml   # 日历弹窗
-│   ├── AIChatWindow.xaml          # AI 聊天
 │   ├── ScheduleEditWindow.xaml    # 日程编辑
 │   ├── MonitorWindow.xaml         # 硬件监控
 │   ├── SettingsWindow.xaml        # 设置
 │   └── ...
+├── backend/                       # PHP + MySQL 后台（节假日/黄历/广告 API + 管理页）
 ├── Hook/Win11Clock/
 │   └── ClockHookDll.cpp           # C++ Hook DLL 源码
 ├── setup.iss                       # Inno Setup 安装脚本

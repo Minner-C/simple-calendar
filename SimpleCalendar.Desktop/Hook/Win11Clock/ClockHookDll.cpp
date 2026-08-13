@@ -11,11 +11,13 @@
 #include <Unknwn.h>
 #include <ocidl.h>
 #include <combaseapi.h>
+#include <oleacc.h>
 #include <xamlom.h>
 
 #include <atomic>
 #include <limits>
 #include <mutex>
+#include <string>
 #include <vector>
 
 #include <winrt/base.h>
@@ -490,7 +492,7 @@ static void EnsureSegments(const wux::FrameworkElement& clockElement,
         if (ReadWeatherText(w, ARRAYSIZE(w))) weatherTb.Text(w);
         weatherTb.Margin(wux::Thickness(0, 0, 10, 0));
 
-        // AI 胶囊按钮：主题色圆角底 + 白字 + 悬停变暗
+        // AI 胶囊按钮：主题色圆角底 + 白字
         winrt::Windows::UI::Color accent{ 255, 0x25, 0x63, 0xEB };
         try
         {
@@ -500,13 +502,7 @@ static void EnsureSegments(const wux::FrameworkElement& clockElement,
         }
         catch (...) {}
 
-        winrt::Windows::UI::Color accentHover = accent;
-        accentHover.R = (uint8_t)(accent.R * 0.75);
-        accentHover.G = (uint8_t)(accent.G * 0.75);
-        accentHover.B = (uint8_t)(accent.B * 0.75);
-
         wux::Media::SolidColorBrush aiBrush(accent);
-        wux::Media::SolidColorBrush aiBrushHover(accentHover);
 
         wux::Controls::Border aiBorder;
         aiBorder.Background(aiBrush);
@@ -520,23 +516,6 @@ static void EnsureSegments(const wux::FrameworkElement& clockElement,
         aiTb.Foreground(wux::Media::SolidColorBrush(winrt::Windows::UI::Colors::White()));
         aiTb.Text(L"✨");
         aiBorder.Child(aiTb);
-
-        // 悬停反馈（令牌登记，卸载时摘除）
-        auto enterTok = aiBorder.PointerEntered(
-            [aiBrushHover](wf::IInspectable const& s, wux::Input::PointerRoutedEventArgs const&)
-            {
-                s.as<wux::Controls::Border>().Background(aiBrushHover);
-            });
-        auto exitTok = aiBorder.PointerExited(
-            [aiBrush](wf::IInspectable const& s, wux::Input::PointerRoutedEventArgs const&)
-            {
-                s.as<wux::Controls::Border>().Background(aiBrush);
-            });
-        {
-            std::lock_guard<std::mutex> guard(g_clockElementsMutex);
-            g_tapRegs.push_back({ winrt::make_weak(aiBorder.as<wux::FrameworkElement>()), enterTok, RegKind::PointerEntered });
-            g_tapRegs.push_back({ winrt::make_weak(aiBorder.as<wux::FrameworkElement>()), exitTok, RegKind::PointerExited });
-        }
 
         panel.Children().Append(weatherTb);
         panel.Children().Append(aiBorder);
@@ -1055,6 +1034,181 @@ int main()
 }
 #endif
 
+// ---------------- 时钟悬浮提示重定位 ----------------
+// 系统时钟的原生 tooltip 锚定鼠标指针，与任务栏之间有一段空隙。
+// 注入在 explorer 内，用 WinEvent 钩子监听 tooltip 的显示/移动事件，
+// 识别出时钟 tooltip（文本含当前时间，且指针在任务栏上）后，
+// 把它移到紧贴任务栏边缘的位置。
+// 各机器差异的适配：
+//   - 全程物理像素（GetCursorPos/GetWindowRect/SetWindowPos），与 DPI 缩放无关
+//   - 主屏/副屏任务栏（Shell_TrayWnd / Shell_SecondaryTrayWnd）都枚举
+//   - 停靠边不假设在底部，取任务栏矩形距显示器最近的边
+//   - 时间文本按用户区域格式匹配，兼容 12/24 小时制
+static std::atomic<DWORD> g_tooltipThreadId{ 0 };
+static HANDLE g_tooltipThread = nullptr;
+static std::atomic<bool> g_tipMoving{ false };  // 防 SetWindowPos 触发事件递归
+
+// 找到指针所在的任务栏窗口矩形（主/副屏任务栏都查）
+static bool FindTaskbarRectAt(POINT pt, RECT* out)
+{
+    struct Ctx { POINT pt; RECT rect{}; bool found = false; } ctx{ pt };
+    EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
+        auto* c = reinterpret_cast<Ctx*>(lParam);
+        wchar_t cls[64] = {};
+        if (!GetClassNameW(hwnd, cls, ARRAYSIZE(cls))) return TRUE;
+        if (wcscmp(cls, L"Shell_TrayWnd") != 0 && wcscmp(cls, L"Shell_SecondaryTrayWnd") != 0)
+            return TRUE;
+        RECT rc{};
+        if (IsWindowVisible(hwnd) && GetWindowRect(hwnd, &rc) && PtInRect(&rc, c->pt))
+        {
+            c->rect = rc;
+            c->found = true;
+            return FALSE;
+        }
+        return TRUE;
+    }, reinterpret_cast<LPARAM>(&ctx));
+    if (ctx.found) *out = ctx.rect;
+    return ctx.found;
+}
+
+// 读 tooltip 文本：优先 MSAA（读屏软件同一条路），失败退回 WM_GETTEXT
+static std::wstring GetTooltipText(HWND tip)
+{
+    wchar_t buf[512] = {};
+
+    IAccessible* acc = nullptr;
+    if (SUCCEEDED(AccessibleObjectFromWindow(
+            tip, OBJID_CLIENT, IID_IAccessible, reinterpret_cast<void**>(&acc))) && acc)
+    {
+        VARIANT self;
+        VariantInit(&self);
+        self.vt = VT_I4;
+        self.lVal = CHILDID_SELF;
+        BSTR name = nullptr;
+        if (SUCCEEDED(acc->get_accName(self, &name)) && name)
+        {
+            wcsncpy_s(buf, name, _TRUNCATE);
+            SysFreeString(name);
+        }
+        acc->Release();
+    }
+
+    if (buf[0] == L'\0')
+        GetWindowTextW(tip, buf, ARRAYSIZE(buf));
+
+    return buf;
+}
+
+// 判定是否时钟 tooltip：指针在任务栏上，且文本包含当前时间。
+// 用不含秒的格式匹配（tooltip 带秒，包含该子串），避免秒的进位失配。
+static bool IsClockTooltipAt(HWND tip, POINT* outPt, RECT* outTb)
+{
+    POINT pt;
+    if (!GetCursorPos(&pt)) return false;
+    RECT tb{};
+    if (!FindTaskbarRectAt(pt, &tb)) return false;
+
+    wchar_t now[64] = {};
+    if (!GetTimeFormatW(LOCALE_NAME_USER_DEFAULT, TIME_NOSECONDS,
+                        nullptr, nullptr, now, ARRAYSIZE(now)))
+        return false;
+
+    if (GetTooltipText(tip).find(now) == std::wstring::npos) return false;
+
+    *outPt = pt;
+    *outTb = tb;
+    return true;
+}
+
+static void CALLBACK TooltipWinEventProc(HWINEVENTHOOK, DWORD event, HWND hwnd,
+                                         LONG idObject, LONG, DWORD, DWORD)
+{
+    if ((event != EVENT_OBJECT_SHOW && event != EVENT_OBJECT_LOCATIONCHANGE) ||
+        idObject != OBJID_WINDOW || !hwnd || g_tipMoving.load())
+        return;
+
+    wchar_t cls[32] = {};
+    if (!GetClassNameW(hwnd, cls, ARRAYSIZE(cls)) || wcscmp(cls, L"tooltips_class32") != 0)
+        return;
+    if (!IsWindowVisible(hwnd)) return;
+
+    POINT pt{};
+    RECT tb{};
+    if (!IsClockTooltipAt(hwnd, &pt, &tb)) return;
+
+    RECT rc{};
+    if (!GetWindowRect(hwnd, &rc)) return;
+    const int w = rc.right - rc.left;
+    const int h = rc.bottom - rc.top;
+
+    MONITORINFO mi{ sizeof(mi) };
+    if (!GetMonitorInfoW(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST), &mi)) return;
+
+    // 停靠边 = 任务栏矩形距显示器最近的边
+    const int monL = (int)mi.rcMonitor.left, monT = (int)mi.rcMonitor.top;
+    const int monR = (int)mi.rcMonitor.right, monB = (int)mi.rcMonitor.bottom;
+    const int dBottom = monB - (int)tb.bottom;
+    const int dTop = (int)tb.top - monT;
+    const int dLeft = (int)tb.left - monL;
+    const int dRight = monR - (int)tb.right;
+    int edge = 0, minV = dBottom;  // 0=下 1=上 2=左 3=右
+    if (dTop < minV) { minV = dTop; edge = 1; }
+    if (dLeft < minV) { minV = dLeft; edge = 2; }
+    if (dRight < minV) { minV = dRight; edge = 3; }
+
+    int x = (int)rc.left, y = (int)rc.top;
+    switch (edge)
+    {
+    case 0:  // 底部：tooltip 底边贴任务栏顶边
+        y = (int)tb.top - h;
+        x = (std::max)(monL, (std::min)(x, monR - w));
+        break;
+    case 1:  // 顶部
+        y = (int)tb.bottom;
+        x = (std::max)(monL, (std::min)(x, monR - w));
+        break;
+    case 2:  // 左侧
+        x = (int)tb.right;
+        y = (std::max)(monT, (std::min)(y, monB - h));
+        break;
+    case 3:  // 右侧
+        x = (int)tb.left - w;
+        y = (std::max)(monT, (std::min)(y, monB - h));
+        break;
+    }
+
+    if (x == rc.left && y == rc.top) return;  // 已就位，避免空转
+
+    g_tipMoving.store(true);
+    SetWindowPos(hwnd, nullptr, x, y, 0, 0,
+                 SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
+    g_tipMoving.store(false);
+    Log(L"Tooltip repositioned: (%d,%d) -> (%d,%d), edge=%d", rc.left, rc.top, x, y, edge);
+}
+
+static DWORD WINAPI TooltipHookThread(LPVOID)
+{
+    g_tooltipThreadId = GetCurrentThreadId();
+    HWINEVENTHOOK hook = SetWinEventHook(
+        EVENT_OBJECT_SHOW, EVENT_OBJECT_LOCATIONCHANGE,
+        nullptr, TooltipWinEventProc,
+        GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
+    Log(L"TooltipHook: installed=%p tid=%lu", hook, GetCurrentThreadId());
+
+    // 消息循环只为接收 WM_QUIT 退出信号（INCONTEXT 回调在事件产生线程同步执行）
+    MSG msg;
+    while (GetMessageW(&msg, nullptr, 0, 0) > 0)
+    {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+
+    if (hook) UnhookWinEvent(hook);
+    g_tooltipThreadId = 0;
+    Log(L"TooltipHook: uninstalled");
+    return 0;
+}
+
 // ---------------- 初始化 / 卸载 ----------------
 
 static HRESULT InjectTAP()
@@ -1122,6 +1276,16 @@ static DWORD WINAPI StopWatchThread(LPVOID)
         WaitForSingleObject(g_updateThread, 3000);
         CloseHandle(g_updateThread);
         g_updateThread = nullptr;
+    }
+
+    // 停掉悬浮提示重定位线程
+    if (g_tooltipThread)
+    {
+        if (DWORD tid = g_tooltipThreadId.load())
+            PostThreadMessageW(tid, WM_QUIT, 0, 0);
+        WaitForSingleObject(g_tooltipThread, 3000);
+        CloseHandle(g_tooltipThread);
+        g_tooltipThread = nullptr;
     }
 
     if (g_visualTreeWatcher)
@@ -1223,6 +1387,10 @@ static void EnsureRuntimeServices()
         // 时钟刷新线程（句柄保留给卸载时等待）
         if (!g_updateThread)
             g_updateThread = CreateThread(nullptr, 0, ClockUpdateThread, nullptr, 0, nullptr);
+
+        // 悬浮提示重定位线程（WinEvent 钩子）
+        if (!g_tooltipThread)
+            g_tooltipThread = CreateThread(nullptr, 0, TooltipHookThread, nullptr, 0, nullptr);
 #endif
 
         if (!g_stopThreadRunning.exchange(true))

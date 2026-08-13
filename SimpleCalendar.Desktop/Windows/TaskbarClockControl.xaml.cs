@@ -11,7 +11,6 @@ namespace SimpleCalendar.Windows;
 public partial class TaskbarClockControl : System.Windows.Controls.UserControl
 {
     private CalendarPopupWindow? _calendarPopup;
-    private AIChatWindow? _aiChatWindow;
     private System.Threading.Timer? _updateTimer;
     private bool _isDarkTheme;
     private ClockSettings _settings;
@@ -122,17 +121,6 @@ public partial class TaskbarClockControl : System.Windows.Controls.UserControl
                 ClockWeatherDesc.Text = string.IsNullOrEmpty(desc) ? city : desc;
                 WeatherBtnBorder.Visibility = Visibility.Visible;
 
-                // 缓存天气数据供 Agent 工具使用
-                WeatherCache.Current = new WeatherInfo
-                {
-                    City = city,
-                    TempC = weather.TempC,
-                    Description = weather.Description,
-                    Humidity = weather.Humidity,
-                    WindKmph = weather.WindKmph,
-                    FeelsLikeC = weather.FeelsLikeC
-                };
-
                 // 天气加载完成后，通知父窗口重新测量定位（解决宽度不够导致天气不显示）
                 WeatherLoaded?.Invoke();
             });
@@ -178,7 +166,8 @@ public partial class TaskbarClockControl : System.Windows.Controls.UserControl
     /// </summary>
     private void AI_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
-        ToggleAIChat();
+        // AI 功能由 ai-cli-hub 提供
+        AIHubLauncher.Toggle();
         e.Handled = true;
     }
 
@@ -206,44 +195,6 @@ public partial class TaskbarClockControl : System.Windows.Controls.UserControl
             _calendarPopup.Top = screen.Bottom - _calendarPopup.Height - 60;
             _calendarPopup.Show();
             _calendarPopup.Activate();
-        }
-    }
-
-    public void ToggleAIChat()
-    {
-        if (_aiChatWindow != null)
-        {
-            if (_aiChatWindow.IsClosingAnimated)
-            {
-                // 正在关闭动画中：取消关闭并激活
-                _aiChatWindow.CancelCloseAnimation();
-                WindowForegroundHelper.ForceForeground(_aiChatWindow);
-            }
-            else if (_aiChatWindow.IsVisible)
-            {
-                // 窗口可见：关闭（有任务时走后台隐藏）
-                _aiChatWindow.AnimateClose();
-            }
-            else
-            {
-                // 窗口已隐藏（后台运行中）：重新显示
-                var screen = SystemParameters.WorkArea;
-                _aiChatWindow.Left = screen.Right - _aiChatWindow.Width - 10;
-                _aiChatWindow.Top = screen.Bottom - _aiChatWindow.Height - 60;
-                _aiChatWindow.Show();
-                WindowForegroundHelper.ForceForeground(_aiChatWindow);
-            }
-        }
-        else
-        {
-            _aiChatWindow = new AIChatWindow();
-            _aiChatWindow.Closed += (_, _) => _aiChatWindow = null;
-
-            var screen = SystemParameters.WorkArea;
-            _aiChatWindow.Left = screen.Right - _aiChatWindow.Width - 10;
-            _aiChatWindow.Top = screen.Bottom - _aiChatWindow.Height - 60;
-            _aiChatWindow.Show();
-            WindowForegroundHelper.ForceForeground(_aiChatWindow);
         }
     }
 
@@ -287,45 +238,6 @@ public partial class TaskbarClockControl : System.Windows.Controls.UserControl
         if (_calendarPopup == null || (!_calendarPopup.IsVisible && !_calendarPopup.IsClosingAnimated))
             OpenCalendar();
         _calendarPopup?.ShowHourlyForecast();
-    }
-
-    /// <summary>
-    /// 打开AI聊天窗口并自动切换到会议纪要Agent（供会议软件监听调用）
-    /// </summary>
-    public void OpenMeetingAgent()
-    {
-        try
-        {
-            // 确保窗口已创建
-            if (_aiChatWindow == null)
-            {
-                _aiChatWindow = new AIChatWindow();
-                _aiChatWindow.Closed += (_, _) => _aiChatWindow = null;
-
-                var screen = SystemParameters.WorkArea;
-                _aiChatWindow.Left = screen.Right - _aiChatWindow.Width - 10;
-                _aiChatWindow.Top = screen.Bottom - _aiChatWindow.Height - 60;
-                _aiChatWindow.Show();
-            }
-            else if (!_aiChatWindow.IsVisible)
-            {
-                // 后台运行中：重新显示
-                _aiChatWindow.Show();
-            }
-            else
-            {
-                if (_aiChatWindow.IsClosingAnimated)
-                    _aiChatWindow.CancelCloseAnimation();
-                _aiChatWindow.Activate();
-            }
-
-            // 切换到会议纪要Agent
-            _aiChatWindow.SwitchToAgent("meeting");
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"[ClockControl] OpenMeetingAgent 失败: {ex.Message}");
-        }
     }
 
     private void ShowContextMenu()

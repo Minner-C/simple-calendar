@@ -44,3 +44,10 @@ Thumbs.db
 *.local
 node_modules/
 dist/
+
+# AI 功能测试产物（ai-cli-hub 联调）
+.ai-cli-hub/
+
+# 部署用后台拷贝（仅保留 backend/ 入库）
+simple-calendar-backend/
+simple-calendar-backend.zip

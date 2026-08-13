@@ -1,0 +1,8 @@
+# Apache 伪静态：所有 /api 请求转发到 index.php
+# （宝塔建站选 Apache 时生效；Nginx 请在站点伪静态里填 README 中的规则）
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L]
+</IfModule>

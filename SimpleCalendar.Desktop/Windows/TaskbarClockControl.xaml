@@ -14,7 +14,7 @@
                     Margin="0,0,8,0"
                     Cursor="Hand"
                     MouseLeftButtonUp="AI_MouseLeftButtonUp"
-                    ToolTip="点击打开AI助手">
+                    ToolTip="打开 AI CLI Hub">
                 <TextBlock x:Name="AIIconText"
                            Text="✨"
                            FontSize="13"

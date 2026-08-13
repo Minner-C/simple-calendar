@@ -58,6 +58,12 @@ public partial class CalendarPopupWindow : Window
     private Action? _animCompleted;
     private const int AnimationDurationMs = 300;
 
+    // 全局鼠标钩子：点击弹窗外部时关闭弹窗。
+    // 点击任务栏/桌面等不会切换前台窗口的场景下 Deactivated 不一定触发，
+    // 所以用 WH_MOUSE_LL 直接拦截"点击别处"这个动作本身。
+    private IntPtr _mouseHook = IntPtr.Zero;
+    private NativeMethods.LowLevelMouseProc? _mouseHookProc;
+
     /// <summary>
     /// 屏幕外的离屏位置（右侧）：面板从时钟所在的右下角滑入/滑出
     /// </summary>
@@ -79,10 +85,75 @@ public partial class CalendarPopupWindow : Window
         _currentYear = now.Year;
         _currentMonth = now.Month;
 
+        Closed += (_, _) => UninstallMouseHook();
+
         UpdateTimeDisplay();
         RenderCalendar();
         LoadWeatherAsync();
         LoadAdsAsync();
+    }
+
+    /// <summary>安装全局鼠标钩子：任意按钮按下发生在弹窗外部时关闭弹窗。</summary>
+    private void InstallMouseHook()
+    {
+        if (_mouseHook != IntPtr.Zero) return;
+        _mouseHookProc = MouseHookCallback;
+        _mouseHook = NativeMethods.SetWindowsHookEx(
+            NativeMethods.WH_MOUSE_LL, _mouseHookProc,
+            NativeMethods.GetModuleHandle(null), 0);
+        SimpleCalendar.App.ClickDebugLog($"日历鼠标钩子安装: handle={_mouseHook}");
+    }
+
+    private void UninstallMouseHook()
+    {
+        if (_mouseHook != IntPtr.Zero)
+        {
+            NativeMethods.UnhookWindowsHookEx(_mouseHook);
+            _mouseHook = IntPtr.Zero;
+        }
+    }
+
+    private IntPtr MouseHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+    {
+        if (nCode == NativeMethods.HC_ACTION)
+        {
+            int msg = wParam.ToInt32();
+            if (msg is NativeMethods.WM_LBUTTONDOWN or NativeMethods.WM_RBUTTONDOWN
+                or NativeMethods.WM_MBUTTONDOWN or NativeMethods.WM_XBUTTONDOWN)
+            {
+                var data = System.Runtime.InteropServices.Marshal.PtrToStructure<NativeMethods.MSLLHOOKSTRUCT>(lParam);
+                HandleGlobalMouseDown(data.pt);
+            }
+        }
+        return NativeMethods.CallNextHookEx(_mouseHook, nCode, wParam, lParam);
+    }
+
+    /// <summary>全局鼠标按下：落在弹窗外（且不是本进程其它窗口）时关闭弹窗。</summary>
+    private void HandleGlobalMouseDown(NativeMethods.POINT pt)
+    {
+        if (_isClosing) return;
+
+        // 点在弹窗内部 → 不处理
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        if (hwnd != IntPtr.Zero && NativeMethods.GetWindowRect(hwnd, out var rc) &&
+            pt.X >= rc.Left && pt.X < rc.Right && pt.Y >= rc.Top && pt.Y < rc.Bottom)
+            return;
+
+        // 点在本进程其它窗口（日程编辑窗等）→ 不处理
+        var hit = NativeMethods.WindowFromPoint(pt);
+        if (hit != IntPtr.Zero)
+        {
+            NativeMethods.GetWindowThreadProcessId(hit, out uint pid);
+            if (pid == Environment.ProcessId) return;
+        }
+
+        // 点在任务栏时钟上时，时钟点击事件随后也会到达，
+        // OpenCalendar 见 IsClosingAnimated 不干预 → 净效果仍是关闭，与原来的开关语义一致
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            SimpleCalendar.App.ClickDebugLog($"点击弹窗外部 ({pt.X},{pt.Y})，关闭日历");
+            AnimateClose();
+        }));
     }
 
     private void UpdateTimeDisplay()
@@ -339,6 +410,7 @@ public partial class CalendarPopupWindow : Window
 
         StartMoveAnimation(offscreenLeft, _targetLeft, false, null);
         ForceForeground();
+        InstallMouseHook();
     }
 
     /// <summary>

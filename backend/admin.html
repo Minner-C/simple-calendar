@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SimpleCalendar 管理后台</title>
+<style>
+:root {
+    --primary: #4f6ef7;
+    --primary-dark: #3d5bef;
+    --danger: #ef4444;
+    --bg: #f3f5fa;
+    --sidebar: #1c2030;
+    --sidebar-active: #2a3049;
+    --text: #1f2430;
+    --text-2: #8a90a6;
+    --border: #e8ebf3;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(24, 32, 68, .06), 0 4px 16px rgba(24, 32, 68, .05);
+}
+* { box-sizing: border-box; }
+body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: var(--bg); color: var(--text); margin: 0; }
+button { font-family: inherit; }
+h1, h2, h3 { margin: 0; }
+
+/* ============ 登录页 ============ */
+#loginView {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #4f6ef7 0%, #7b5cf0 50%, #a855f7 100%);
+}
+#loginView .box {
+    background: #fff; width: 360px; padding: 40px 36px; border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(30, 20, 80, .35);
+}
+#loginView .logo { text-align: center; font-size: 40px; margin-bottom: 8px; }
+#loginView h1 { text-align: center; font-size: 20px; margin-bottom: 4px; }
+#loginView .sub { text-align: center; color: var(--text-2); font-size: 13px; margin-bottom: 28px; }
+#loginView input {
+    width: 100%; padding: 12px 14px; margin-bottom: 14px; font-size: 14px;
+    border: 1.5px solid var(--border); border-radius: 10px; outline: none; transition: border-color .15s;
+}
+#loginView input:focus { border-color: var(--primary); }
+#loginView button {
+    width: 100%; padding: 12px; font-size: 15px; border: none; border-radius: 10px;
+    background: var(--primary); color: #fff; cursor: pointer; transition: background .15s;
+}
+#loginView button:hover { background: var(--primary-dark); }
+#loginErr { color: var(--danger); font-size: 13px; margin-bottom: 12px; min-height: 18px; text-align: center; }
+
+/* ============ 主框架 ============ */
+.layout { display: flex; min-height: 100vh; }
+.sidebar {
+    width: 216px; flex-shrink: 0; background: var(--sidebar); color: #c7cbdd;
+    display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
+}
+.sidebar .brand { padding: 22px 20px; display: flex; align-items: center; gap: 10px; }
+.sidebar .brand .icon { font-size: 24px; }
+.sidebar .brand .name { font-size: 15px; font-weight: 600; color: #fff; }
+.sidebar .brand .name small { display: block; font-size: 11px; font-weight: 400; color: #6b7194; margin-top: 2px; }
+.nav { flex: 1; padding: 8px 12px; }
+.nav a {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 4px;
+    border-radius: 8px; color: #c7cbdd; font-size: 14px; cursor: pointer; text-decoration: none;
+    transition: background .12s, color .12s;
+}
+.nav a .ico { width: 20px; text-align: center; }
+.nav a:hover { background: var(--sidebar-active); color: #fff; }
+.nav a.on { background: var(--primary); color: #fff; }
+.sidebar .foot { padding: 14px 20px; font-size: 12px; color: #565d7d; border-top: 1px solid #262b3f; }
+
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.topbar {
+    height: 60px; background: #fff; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; padding: 0 24px;
+    position: sticky; top: 0; z-index: 10;
+}
+.topbar .title { font-size: 16px; font-weight: 600; }
+.topbar .user { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-2); }
+.topbar .avatar {
+    width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600;
+}
+.topbar .logout { color: var(--text-2); cursor: pointer; font-size: 13px; }
+.topbar .logout:hover { color: var(--danger); }
+.content { padding: 24px; }
+
+/* ============ 卡片 / 表格 / 表单 ============ */
+.card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 20px; }
+.card h3 { font-size: 14px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.card h3 .hint { font-weight: 400; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; color: var(--text-2); font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 7px 10px; border-bottom: 1px solid #f2f4f9; }
+tbody tr:hover { background: #f8f9fd; }
+tr:last-child td { border-bottom: none; }
+input[type=text], input[type=password], input[type=date], select {
+    padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px;
+    outline: none; transition: border-color .15s; background: #fff;
+}
+input:focus, select:focus { border-color: var(--primary); }
+.btn {
+    padding: 7px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 13px;
+    background: var(--primary); color: #fff; transition: background .15s; white-space: nowrap;
+}
+.btn:hover { background: var(--primary-dark); }
+.btn.danger { background: #fee2e2; color: var(--danger); }
+.btn.danger:hover { background: #fecaca; }
+.btn.sm { padding: 5px 12px; font-size: 12px; }
+.form-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.hint { color: var(--text-2); font-size: 12px; }
+.tag { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 12px; }
+.tag.holiday { background: #e8f7ee; color: #16a34a; }
+.tag.workday { background: #fdf1e3; color: #d97706; }
+
+/* 概况统计卡 */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.stat {
+    background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 20px;
+    display: flex; align-items: center; gap: 14px;
+}
+.stat .ico {
+    width: 44px; height: 44px; border-radius: 12px; font-size: 20px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.stat .num { font-size: 24px; font-weight: 700; line-height: 1.2; }
+.stat .lbl { font-size: 12px; color: var(--text-2); }
+
+/* 年份切换 */
+.years { display: flex; gap: 6px; margin-bottom: 16px; }
+.years a {
+    padding: 6px 14px; border-radius: 8px; font-size: 13px; cursor: pointer;
+    background: #fff; border: 1.5px solid var(--border); color: var(--text-2);
+}
+.years a.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+/* Toast */
+#toast {
+    position: fixed; right: 24px; bottom: 24px; z-index: 99; padding: 12px 20px; border-radius: 10px;
+    color: #fff; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.18);
+    background: #16a34a; opacity: 0; transform: translateY(12px); transition: all .25s; pointer-events: none;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+#toast.err { background: var(--danger); }
+
+@media (max-width: 860px) {
+    .sidebar { width: 64px; }
+    .sidebar .brand .name, .nav a span.txt, .sidebar .foot { display: none; }
+    .nav a { justify-content: center; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ 登录页 ============ -->
+<div id="loginView" style="display:none">
+    <div class="box">
+        <div class="logo">🗓️</div>
+        <h1>SimpleCalendar</h1>
+        <div class="sub">管理后台</div>
+        <div id="loginErr"></div>
+        <form id="loginForm">
+            <input type="text" id="loginUser" placeholder="账号" autofocus>
+            <input type="password" id="loginPwd" placeholder="密码">
+            <button type="submit">登 录</button>
+        </form>
+    </div>
+</div>
+
+<!-- ============ 主界面 ============ -->
+<div id="mainView" class="layout" style="display:none">
+    <aside class="sidebar">
+        <div class="brand">
+            <span class="icon">🗓️</span>
+            <span class="name">SimpleCalendar<small>管理后台</small></span>
+        </div>
+        <nav class="nav">
+            <a data-tab="overview"><span class="ico">📊</span><span class="txt">数据概况</span></a>
+            <a data-tab="holidays"><span class="ico">🎉</span><span class="txt">节假日</span></a>
+            <a data-tab="ads"><span class="ico">📢</span><span class="txt">广告位</span></a>
+            <a data-tab="almanac"><span class="ico">📖</span><span class="txt">黄历宜忌</span></a>
+            <a data-tab="account"><span class="ico">👤</span><span class="txt">账号管理</span></a>
+        </nav>
+        <div class="foot">SimpleCalendar Backend</div>
+    </aside>
+
+    <div class="main">
+        <div class="topbar">
+            <div class="title" id="pageTitle">数据概况</div>
+            <div class="user">
+                <div class="avatar" id="avatar">A</div>
+                <span id="whoAmI"></span>
+                <a class="logout" id="logoutBtn">退出登录</a>
+            </div>
+        </div>
+        <div class="content" id="content"></div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const state = { tab: 'overview', year: new Date().getFullYear() };
+const TITLES = { overview: '数据概况', holidays: '节假日管理', ads: '广告位管理', almanac: '黄历宜忌', account: '账号管理' };
+const AD_POSITIONS = { calendar_bottom: '日历底部', weather_bottom: '天气卡片底部', hourly_bottom: '小时预报底部' };
+
+// ---------- 通用 ----------
+async function api(params, body) {
+    const opt = body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {};
+    const res = await fetch('admin_api.php?' + params, opt);
+    if (res.status === 401) { showLogin(); throw new Error('未登录'); }
+    return res.json();
+}
+
+function toast(text, isErr) {
+    const t = $('#toast');
+    t.textContent = text;
+    t.className = 'show' + (isErr ? ' err' : '');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.className = '', 2500);
+}
+
+function el(tag, attrs, text) {
+    const e = document.createElement(tag);
+    if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    return e;
+}
+function input(name, value, type, placeholder) {
+    const e = el('input', { type: type || 'text' });
+    e.value = value || '';
+    if (placeholder) e.placeholder = placeholder;
+    e.dataset.field = name;
+    return e;
+}
+function select(field, options, current) {
+    const s = el('select');
+    s.dataset.field = field;
+    for (const val in options) {
+        const o = el('option', { value: val }, options[val]);
+        if (val === current) o.selected = true;
+        s.appendChild(o);
+    }
+    return s;
+}
+function rowData(tr) {
+    const d = {};
+    tr.querySelectorAll('[data-field]').forEach(e => { d[e.dataset.field] = e.value; });
+    return d;
+}
+function tdWith(child) { const td = el('td'); td.appendChild(child); return td; }
+function emptyRow(table, colspan, text) {
+    const tr = el('tr');
+    const td = tdWith(el('span', { class: 'hint' }, text));
+    td.setAttribute('colspan', colspan);
+    tr.appendChild(td);
+    table.appendChild(tr);
+}
+function saveDeleteOps(onSave, onDel) {
+    const td = el('td');
+    const save = el('button', { class: 'btn sm' }, '保存');
+    save.addEventListener('click', onSave);
+    const del = el('button', { class: 'btn sm danger' }, '删除');
+    del.style.marginLeft = '6px';
+    del.addEventListener('click', onDel);
+    td.append(save, del);
+    return td;
+}
+function typeTag(type) {
+    return el('span', { class: 'tag ' + type }, type === 'workday' ? '调班' : '休假');
+}
+function yearNav(container, reload) {
+    const nav = el('div', { class: 'years' });
+    const cur = new Date().getFullYear();
+    for (let y = cur - 1; y <= cur + 2; y++) {
+        const a = el('a', y === state.year ? { class: 'on' } : {}, String(y) + ' 年');
+        a.addEventListener('click', () => { state.year = y; reload(); });
+        nav.appendChild(a);
+    }
+    container.appendChild(nav);
+}
+
+// ---------- 登录 ----------
+async function init() {
+    try {
+        const r = await api('action=check');
+        r.logged_in ? showMain(r.username) : showLogin();
+    } catch (e) {
+        $('#loginView').style.display = 'flex';
+        $('#loginErr').textContent = '无法连接后台接口：请通过 http(s)://域名/admin.html 访问本页面，直接双击本地文件打不开';
+    }
+}
+function showLogin() {
+    $('#loginView').style.display = 'flex';
+    $('#mainView').style.display = 'none';
+}
+function showMain(username) {
+    $('#loginView').style.display = 'none';
+    $('#mainView').style.display = 'flex';
+    $('#whoAmI').textContent = username || '';
+    $('#avatar').textContent = (username || 'A').charAt(0).toUpperCase();
+    loadTab();
+}
+$('#loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const r = await api('action=login', { action: 'login', username: $('#loginUser').value, password: $('#loginPwd').value });
+    if (r.code === 200) { $('#loginErr').textContent = ''; showMain(r.username); }
+    else $('#loginErr').textContent = r.message || '登录失败';
+});
+$('#logoutBtn').addEventListener('click', async () => {
+    await api('action=logout');
+    location.reload();
+});
+
+// ---------- 导航 ----------
+document.querySelectorAll('.nav a').forEach(a => {
+    a.addEventListener('click', () => { state.tab = a.dataset.tab; loadTab(); });
+});
+function loadTab() {
+    document.querySelectorAll('.nav a').forEach(a => a.classList.toggle('on', a.dataset.tab === state.tab));
+    $('#pageTitle').textContent = TITLES[state.tab] || '';
+    if (state.tab === 'overview') loadOverview();
+    else if (state.tab === 'holidays') loadHolidays();
+    else if (state.tab === 'ads') loadAds();
+    else if (state.tab === 'almanac') loadAlmanac();
+    else loadAccount();
+}
+
+// ---------- 数据概况 ----------
+async function loadOverview() {
+    const c = $('#content');
+    c.innerHTML = '';
+    const [ov, st] = await Promise.all([api('action=overview'), api('action=ad_stats')]);
+    const d = ov.data || {};
+
+    const grid = el('div', { class: 'stat-grid' });
+    const cards = [
+        ['🎉', '#e8f0fe', d.holidays, '节假日数据'],
+        ['📢', '#fdf1e3', d.ads, '在线广告'],
+        ['📖', '#f3e8fe', d.almanac, '黄历数据'],
+        ['👆', '#e8f7ee', d.clicks, '广告总点击'],
+        ['👤', '#fde8e8', d.admins, '管理员账号'],
+    ];
+    cards.forEach(([ico, bg, num, lbl]) => {
+        const s = el('div', { class: 'stat' });
+        const ic = el('div', { class: 'ico' }, ico);
+        ic.style.background = bg;
+        const tx = el('div');
+        tx.append(el('div', { class: 'num' }, String(num ?? 0)), el('div', { class: 'lbl' }, lbl));
+        s.append(ic, tx);
+        grid.appendChild(s);
+    });
+    c.appendChild(grid);
+
+    const card1 = el('div', { class: 'card' });
+    card1.appendChild(el('h3', null, '各广告点击量'));
+    const t1 = el('table');
+    t1.innerHTML = '<thead><tr><th>ID</th><th>标题</th><th>位置</th><th>点击量</th></tr></thead><tbody></tbody>';
+    (st.stats || []).forEach(s => {
+        const tr = el('tr');
+        tr.append(el('td', null, String(s.id)), el('td', null, s.title),
+            el('td', null, AD_POSITIONS[s.position] || s.position), el('td', null, String(s.clicks)));
+        t1.querySelector('tbody').appendChild(tr);
+    });
+    if (!st.stats || !st.stats.length) emptyRow(t1.querySelector('tbody'), 4, '暂无广告');
+    card1.appendChild(t1);
+    c.appendChild(card1);
+
+    const card2 = el('div', { class: 'card' });
+    card2.appendChild(el('h3', null, '最近 50 条点击记录'));
+    const t2 = el('table');
+    t2.innerHTML = '<thead><tr><th>广告 ID</th><th>IP</th><th>时间</th></tr></thead><tbody></tbody>';
+    (st.recent || []).forEach(s => {
+        const tr = el('tr');
+        tr.append(el('td', null, String(s.ad_id)), el('td', null, s.ip), el('td', null, s.created_at));
+        t2.querySelector('tbody').appendChild(tr);
+    });
+    if (!st.recent || !st.recent.length) emptyRow(t2.querySelector('tbody'), 3, '暂无点击记录');
+    card2.appendChild(t2);
+    c.appendChild(card2);
+}
+
+// ---------- 节假日 ----------
+async function loadHolidays() {
+    const c = $('#content');
+    c.innerHTML = '';
+
+    const addCard = el('div', { class: 'card' });
+    addCard.appendChild(el('h3', null, '添加节假日'));
+    const form = el('form', { class: 'form-row' });
+    form.append(
+        input('date', '', 'date'),
+        input('name', '', 'text', '名称（如 春节 / 春节调班）'),
+        select('type', { holiday: '休假', workday: '调班' }),
+        el('button', { type: 'submit', class: 'btn' }, '添加 / 更新'),
+        el('span', { class: 'hint' }, '同日期重复提交会覆盖')
+    );
+    form.addEventListener('submit', async e => {
+        e.preventDefault();
+        const d = rowData(form);
+        if (!d.date) { toast('请选择日期', true); return; }
+        const r = await api('action=holiday_save', { action: 'holiday_save', ...d });
+        r.code === 200 ? (toast('已保存'), loadHolidays()) : toast(r.message, true);
+    });
+    addCard.appendChild(form);
+    c.appendChild(addCard);
+
+    const listCard = el('div', { class: 'card' });
+    yearNav(listCard, loadHolidays);
+    const r = await api('action=holidays&year=' + state.year);
+    const table = el('table');
+    table.innerHTML = '<thead><tr><th>日期</th><th>名称</th><th>类型</th><th>操作</th></tr></thead><tbody></tbody>';
+    (r.data || []).forEach(item => {
+        const tr = el('tr');
+        const tdDate = el('td', null, item.date);
+        tdDate.appendChild(input('date', item.date, 'hidden'));
+        tr.append(tdDate, tdWith(input('name', item.name)),
+            tdWith(select('type', { holiday: '休假', workday: '调班' }, item.type)));
+        tr.appendChild(saveDeleteOps(
+            async () => {
+                const rr = await api('action=holiday_save', { action: 'holiday_save', ...rowData(tr) });
+                rr.code === 200 ? toast('已保存') : toast(rr.message, true);
+            },
+            async () => {
+                if (!confirm('确认删除 ' + item.date + '？')) return;
+                await api('action=holiday_delete', { action: 'holiday_delete', date: item.date });
+                toast('已删除');
+                loadHolidays();
+            }
+        ));
+        table.querySelector('tbody').appendChild(tr);
+    });
+    if (!r.data || !r.data.length) emptyRow(table.querySelector('tbody'), 4, state.year + ' 年暂无数据');
+    listCard.appendChild(table);
+    c.appendChild(listCard);
+}
+
+// ---------- 广告 ----------
+async function loadAds() {
+    const c = $('#content');
+    c.innerHTML = '';
+
+    const addCard = el('div', { class: 'card' });
+    addCard.appendChild(el('h3', null, '添加广告'));
+    const form = el('form', { class: 'form-row' });
+    form.append(
+        input('title', '', 'text', '标题'),
+        input('image_url', '', 'text', '图片地址（可空）'),
+        input('link_url', '', 'text', '跳转链接'),
+        select('position', AD_POSITIONS),
+        el('button', { type: 'submit', class: 'btn' }, '添加广告')
+    );
+    form.querySelector('[data-field=image_url]').size = 26;
+    form.querySelector('[data-field=link_url]').size = 26;
+    form.addEventListener('submit', async e => {
+        e.preventDefault();
+        const d = rowData(form);
+        if (!d.title) { toast('请填写标题', true); return; }
+        const r = await api('action=ad_save', { action: 'ad_save', id: 0, ...d });
+        r.code === 200 ? (toast('已添加'), loadAds()) : toast(r.message, true);
+    });
+    addCard.appendChild(form);
+    c.appendChild(addCard);
+
+    const listCard = el('div', { class: 'card' });
+    listCard.appendChild(el('h3', null, '广告列表'));
+    const r = await api('action=ads');
+    const table = el('table');
+    table.innerHTML = '<thead><tr><th>ID</th><th>标题</th><th>图片地址</th><th>跳转链接</th><th>位置</th><th>操作</th></tr></thead><tbody></tbody>';
+    (r.data || []).forEach(item => {
+        const tr = el('tr');
+        tr.append(el('td', null, String(item.id)),
+            tdWith(input('title', item.title)),
+            tdWith(input('image_url', item.image_url)),
+            tdWith(input('link_url', item.link_url)),
+            tdWith(select('position', AD_POSITIONS, item.position)));
+        tr.appendChild(saveDeleteOps(
+            async () => {
+                const rr = await api('action=ad_save', { action: 'ad_save', id: item.id, ...rowData(tr) });
+                rr.code === 200 ? toast('已保存') : toast(rr.message, true);
+            },
+            async () => {
+                if (!confirm('确认删除广告 #' + item.id + '？')) return;
+                await api('action=ad_delete', { action: 'ad_delete', id: item.id });
+                toast('已删除');
+                loadAds();
+            }
+        ));
+        table.querySelector('tbody').appendChild(tr);
+    });
+    if (!r.data || !r.data.length) emptyRow(table.querySelector('tbody'), 6, '暂无广告（客户端不显示广告位）');
+    listCard.appendChild(table);
+    c.appendChild(listCard);
+}
+
+// ---------- 黄历 ----------
+async function loadAlmanac() {
+    const c = $('#content');
+    c.innerHTML = '';
+
+    const addCard = el('div', { class: 'card' });
+    addCard.appendChild(el('h3', null, '添加黄历'));
+    const form = el('form', { class: 'form-row' });
+    form.append(
+        input('date', '', 'date'),
+        input('yi', '', 'text', '宜（如 祭祀 祈福）'),
+        input('ji', '', 'text', '忌（如 嫁娶 动土）'),
+        input('festival', '', 'text', '节日（可空）'),
+        el('button', { type: 'submit', class: 'btn' }, '添加 / 更新'),
+        el('span', { class: 'hint' }, '客户端查不到的日期会回退内置数据')
+    );
+    form.addEventListener('submit', async e => {
+        e.preventDefault();
+        const d = rowData(form);
+        if (!d.date) { toast('请选择日期', true); return; }
+        const r = await api('action=almanac_save', { action: 'almanac_save', ...d });
+        r.code === 200 ? (toast('已保存'), loadAlmanac()) : toast(r.message, true);
+    });
+    addCard.appendChild(form);
+    c.appendChild(addCard);
+
+    const listCard = el('div', { class: 'card' });
+    yearNav(listCard, loadAlmanac);
+    const r = await api('action=almanac&year=' + state.year);
+    const table = el('table');
+    table.innerHTML = '<thead><tr><th>日期</th><th>宜</th><th>忌</th><th>节日</th><th>操作</th></tr></thead><tbody></tbody>';
+    (r.data || []).forEach(item => {
+        const tr = el('tr');
+        const tdDate = el('td', null, item.date);
+        tdDate.appendChild(input('date', item.date, 'hidden'));
+        tr.append(tdDate, tdWith(input('yi', item.yi)), tdWith(input('ji', item.ji)), tdWith(input('festival', item.festival)));
+        tr.appendChild(saveDeleteOps(
+            async () => {
+                const rr = await api('action=almanac_save', { action: 'almanac_save', ...rowData(tr) });
+                rr.code === 200 ? toast('已保存') : toast(rr.message, true);
+            },
+            async () => {
+                if (!confirm('确认删除 ' + item.date + '？')) return;
+                await api('action=almanac_delete', { action: 'almanac_delete', date: item.date });
+                toast('已删除');
+                loadAlmanac();
+            }
+        ));
+        table.querySelector('tbody').appendChild(tr);
+    });
+    if (!r.data || !r.data.length) emptyRow(table.querySelector('tbody'), 5, state.year + ' 年暂无数据');
+    listCard.appendChild(table);
+    c.appendChild(listCard);
+}
+
+// ---------- 账号管理 ----------
+async function loadAccount() {
+    const c = $('#content');
+    c.innerHTML = '';
+
+    const card1 = el('div', { class: 'card' });
+    card1.appendChild(el('h3', null, '修改我的密码'));
+    const form = el('form', { class: 'form-row' });
+    form.append(
+        input('old_password', '', 'password', '原密码'),
+        input('new_password', '', 'password', '新密码（至少 6 位）'),
+        input('new_password2', '', 'password', '确认新密码'),
+        el('button', { type: 'submit', class: 'btn' }, '修改密码')
+    );
+    form.addEventListener('submit', async e => {
+        e.preventDefault();
+        const d = rowData(form);
+        if (d.new_password !== d.new_password2) { toast('两次输入的新密码不一致', true); return; }
+        const r = await api('action=change_password', { action: 'change_password', ...d });
+        r.code === 200 ? (toast('密码已修改'), form.reset()) : toast(r.message, true);
+    });
+    card1.appendChild(form);
+    c.appendChild(card1);
+
+    const card2 = el('div', { class: 'card' });
+    card2.appendChild(el('h3', null, '管理员账号'));
+    const addForm = el('form', { class: 'form-row' });
+    addForm.style.marginBottom = '16px';
+    addForm.append(
+        input('username', '', 'text', '新账号'),
+        input('password', '', 'password', '密码（至少 6 位）'),
+        el('button', { type: 'submit', class: 'btn' }, '添加管理员')
+    );
+    addForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        const r = await api('action=admin_add', { action: 'admin_add', ...rowData(addForm) });
+        r.code === 200 ? (toast('已添加'), loadAccount()) : toast(r.message, true);
+    });
+    card2.appendChild(addForm);
+
+    const r = await api('action=admins');
+    const table = el('table');
+    table.innerHTML = '<thead><tr><th>ID</th><th>账号</th><th>创建时间</th><th>操作</th></tr></thead><tbody></tbody>';
+    (r.data || []).forEach(item => {
+        const tr = el('tr');
+        tr.append(el('td', null, String(item.id)), el('td', null, item.username), el('td', null, item.created_at || ''));
+        const tdOps = el('td');
+        if (item.id === r.self_id) {
+            tdOps.appendChild(el('span', { class: 'hint' }, '当前登录账号'));
+        } else {
+            const del = el('button', { class: 'btn sm danger' }, '删除');
+            del.addEventListener('click', async () => {
+                if (!confirm('确认删除账号 ' + item.username + '？')) return;
+                const rr = await api('action=admin_delete', { action: 'admin_delete', id: item.id });
+                rr.code === 200 ? (toast('已删除'), loadAccount()) : toast(rr.message, true);
+            });
+            tdOps.appendChild(del);
+        }
+        tr.appendChild(tdOps);
+        table.querySelector('tbody').appendChild(tr);
+    });
+    card2.appendChild(table);
+    c.appendChild(card2);
+}
+
+init();
+</script>
+</body>
+</html>

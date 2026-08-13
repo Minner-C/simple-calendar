@@ -56,9 +56,6 @@
                         <RadioButton x:Name="NavMonitor" Content="📊 监控面板" Margin="4,2,4,2"
                                      Style="{DynamicResource NavRadioButtonStyle}"
                                      Click="Nav_Click"/>
-                        <RadioButton x:Name="NavAI" Content="✨ AI设置" Margin="4,2,4,2"
-                                     Style="{DynamicResource NavRadioButtonStyle}"
-                                     Click="Nav_Click"/>
                         <RadioButton x:Name="NavAdvanced" Content="⚙ 高级设置" Margin="4,2,4,4"
                                      Style="{DynamicResource NavRadioButtonStyle}"
                                      Click="Nav_Click"/>
@@ -189,8 +186,17 @@
                                               Style="{DynamicResource SettingsCheckBoxStyle}"/>
                                     <CheckBox x:Name="MonitorShowGpuTempCheck" Content="GPU 温度（独立进度条，最大 100°C，需NVIDIA显卡）" Margin="0,0,0,8"
                                               Style="{DynamicResource SettingsCheckBoxStyle}"/>
-                                    <CheckBox x:Name="MonitorShowTokenCheck" Content="Token 用量（今日 token 消耗）" Margin="0,0,0,8"
+                                    <CheckBox x:Name="MonitorShowTokenCheck" Content="Token 用量（AI CLI Hub 今日 token 消耗）" Margin="0,0,0,8"
                                               Style="{DynamicResource SettingsCheckBoxStyle}"/>
+                                    <StackPanel Orientation="Horizontal" Margin="20,0,0,8">
+                                        <TextBlock Text="Token 日额度" FontSize="12" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource SettingsLabel}"/>
+                                        <TextBox x:Name="TokenDailyQuotaBox" Style="{DynamicResource SettingsTextBoxStyle}"
+                                                 Width="120" Margin="8,0,8,0" Padding="6,3"
+                                                 ToolTip="Token 进度条的满格参考值，默认 10000000（1 千万）"/>
+                                        <TextBlock Text="（默认 1 千万，进度条满格参考值）" FontSize="10" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource SettingsLabel}"/>
+                                    </StackPanel>
                                     <CheckBox x:Name="MonitorShowVolumeCheck" Content="音量调节（可拖动进度条调节系统音量）" Margin="0,0,0,8"
                                               Style="{DynamicResource SettingsCheckBoxStyle}"/>
                                     <CheckBox x:Name="MonitorShowBrightnessCheck" Content="亮度调节（可拖动进度条调节屏幕亮度，需支持WMI的显示器）" Margin="0,0,0,8"
@@ -215,282 +221,6 @@
                                            FontSize="10" Foreground="{DynamicResource SettingsLabel}" Margin="0,0,0,8" TextWrapping="Wrap" MaxWidth="420"/>
                             </StackPanel>
 
-                            <!-- AI设置页 -->
-                            <StackPanel x:Name="PageAI" Visibility="Collapsed">
-                                <TextBlock Text="AI设置" FontSize="15" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource SettingsTitle}" Margin="0,0,0,16"/>
-
-                                <CheckBox x:Name="AIEnabledCheck" Content="启用AI助手" Margin="0,0,0,16"
-                                          Style="{DynamicResource SettingsCheckBoxStyle}"
-                                          Checked="AIEnabled_Changed" Unchecked="AIEnabled_Changed"/>
-
-                                <StackPanel x:Name="AIConfigPanel" Margin="0,0,0,0">
-
-                                    <!-- 模型管理区（类似Trae的多模型管理） -->
-                                    <Border Background="{DynamicResource SettingsNavBg}" CornerRadius="6" Padding="12,10" Margin="0,0,0,12">
-                                        <StackPanel>
-                                            <Grid Margin="0,0,0,10">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Text="模型管理" FontSize="13" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource SettingsTitle}" VerticalAlignment="Center"/>
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                                    <Button Content="➕ 新建模型" MinWidth="96"
-                                                            Style="{DynamicResource SecondaryButtonStyle}"
-                                                            Click="AddModel_Click" Margin="0,0,8,0"/>
-                                                    <Button Content="✏ 编辑" MinWidth="80"
-                                                            Style="{DynamicResource SecondaryButtonStyle}"
-                                                            Click="EditModel_Click" Margin="0,0,8,0"/>
-                                                    <Button Content="🗑 删除" MinWidth="80"
-                                                            Style="{DynamicResource SecondaryButtonStyle}"
-                                                            Click="DeleteModel_Click"/>
-                                                </StackPanel>
-                                            </Grid>
-
-                                            <TextBlock Text="点击列表项可设为当前使用模型，双击可编辑" FontSize="10"
-                                                       Foreground="{DynamicResource SettingsLabel}" Margin="0,0,0,8"/>
-
-                                            <ListBox x:Name="ModelListBox" Height="180"
-                                                     Background="{DynamicResource SettingsContentBg}"
-                                                     Foreground="{DynamicResource SettingsLabel}"
-                                                     BorderBrush="{DynamicResource SettingsInputBorder}" BorderThickness="1"
-                                                     SelectionChanged="ModelList_SelectionChanged"
-                                                     MouseDoubleClick="ModelList_MouseDoubleClick">
-                                                <ListBox.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <StackPanel Margin="0,2">
-                                                            <Grid>
-                                                                <Grid.ColumnDefinitions>
-                                                                    <ColumnDefinition Width="*"/>
-                                                                    <ColumnDefinition Width="Auto"/>
-                                                                </Grid.ColumnDefinitions>
-                                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                                    <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
-                                                                               Foreground="{DynamicResource SettingsTitle}"/>
-                                                                    <Border Margin="6,0,0,0" Padding="6,1" CornerRadius="3"
-                                                                            Background="{DynamicResource SettingsBtnPrimary}"
-                                                                            Visibility="{Binding IsActiveBadgeVisibility}">
-                                                                        <TextBlock Text="当前" FontSize="9" Foreground="White"/>
-                                                                    </Border>
-                                                                </StackPanel>
-                                                                <TextBlock Grid.Column="1" Text="{Binding Provider}" FontSize="10"
-                                                                           Foreground="{DynamicResource SettingsLabel}" VerticalAlignment="Center"/>
-                                                            </Grid>
-                                                            <TextBlock Text="{Binding Model}" FontSize="10"
-                                                                       Foreground="{DynamicResource SettingsLabel}" Margin="0,2,0,0"/>
-                                                            <TextBlock Text="{Binding ApiUrl}" FontSize="9"
-                                                                       Foreground="{DynamicResource SettingsLabel}" Margin="0,1,0,0"
-                                                                       TextTrimming="CharacterEllipsis"/>
-                                                        </StackPanel>
-                                                    </DataTemplate>
-                                                </ListBox.ItemTemplate>
-                                            </ListBox>
-
-                                            <TextBlock Text="提示：可添加多个模型（如DeepSeek、通义千问、智谱等），在AI对话框顶部切换"
-                                                       FontSize="10" Margin="0,6,0,0"
-                                                       Foreground="{DynamicResource SettingsLabel}" TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                    </Border>
-
-                                    <!-- Agent 配置区（单一通用助手，只读展示 + 编辑提示词） -->
-                                    <Border Background="{DynamicResource SettingsNavBg}" CornerRadius="6" Padding="12,10">
-                                        <StackPanel>
-                                            <Grid Margin="0,0,0,10">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Text="🤖 AI 助手配置" FontSize="13" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource SettingsTitle}" VerticalAlignment="Center"/>
-                                                <Button Grid.Column="1" Content="✏ 编辑提示词" MinWidth="100"
-                                                        Style="{DynamicResource SecondaryButtonStyle}"
-                                                        Click="EditAgent_Click"/>
-                                            </Grid>
-
-                                            <Border Background="{DynamicResource SettingsContentBg}" CornerRadius="4" Padding="10,8">
-                                                <StackPanel>
-                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                                        <TextBlock Text="✨" FontSize="20" VerticalAlignment="Center" Margin="0,0,10,0"
-                                                                   FontFamily="Segoe UI Emoji"/>
-                                                        <StackPanel VerticalAlignment="Center">
-                                                            <TextBlock Text="AI 助手" FontSize="13" FontWeight="SemiBold"
-                                                                       Foreground="{DynamicResource SettingsTitle}"/>
-                                                            <TextBlock Text="全能助手 · 自动调用技能和工具" FontSize="10"
-                                                                       Foreground="{DynamicResource SettingsLabel}"/>
-                                                        </StackPanel>
-                                                    </StackPanel>
-                                                    <TextBlock Text="系统内置单一通用助手，无需切换。所有专业能力（公文写作、会议纪要、代码审查等）通过 Skills 自动调用，外部工具通过 MCP 全局接入。点击右上角&quot;编辑提示词&quot;可自定义助手行为。"
-                                                               FontSize="10" Margin="0,4,0,0" TextWrapping="Wrap"
-                                                               Foreground="{DynamicResource SettingsLabel}"/>
-                                                </StackPanel>
-                                            </Border>
-                                        </StackPanel>
-                                    </Border>
-
-                                    <!-- MCP 服务器 / Skills 扩展能力入口 -->
-                                    <Border Background="{DynamicResource SettingsNavBg}" CornerRadius="6" Padding="12,10" Margin="0,12,0,0">
-                                        <StackPanel>
-                                            <TextBlock Text="🔌 扩展能力" FontSize="13" FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource SettingsTitle}" Margin="0,0,0,4"/>
-                                            <TextBlock Text="MCP 服务器提供外部工具接入（网页抓取、文件系统、GitHub 等）；Skills 提供可复用的专业能力（公文写作、会议纪要等）。两者均全局自动启用，AI 会按需调用。"
-                                                       FontSize="10" Foreground="{DynamicResource SettingsLabel}" Margin="0,0,0,10" TextWrapping="Wrap"/>
-
-                                            <Grid Margin="0,0,0,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                <Button Grid.Column="0" x:Name="ManageMcpBtn" Click="ManageMcp_Click"
-                                                        Style="{DynamicResource SecondaryButtonStyle}"
-                                                        HorizontalContentAlignment="Stretch" Margin="0,0,6,0" MinHeight="56">
-                                                    <StackPanel>
-                                                        <TextBlock Text="🔌 MCP 服务器管理" FontSize="12" FontWeight="SemiBold"
-                                                                   Foreground="{DynamicResource SettingsTitle}"/>
-                                                        <TextBlock x:Name="McpSummaryText" Text="点击管理已连接的外部工具"
-                                                                   FontSize="10" Foreground="{DynamicResource SettingsLabel}" TextWrapping="Wrap"/>
-                                                    </StackPanel>
-                                                </Button>
-                                                <Button Grid.Column="1" x:Name="ManageSkillsBtn" Click="ManageSkills_Click"
-                                                        Style="{DynamicResource SecondaryButtonStyle}"
-                                                        HorizontalContentAlignment="Stretch" Margin="6,0,0,0" MinHeight="56">
-                                                    <StackPanel>
-                                                        <TextBlock Text="⚡ Skills 管理" FontSize="12" FontWeight="SemiBold"
-                                                                   Foreground="{DynamicResource SettingsTitle}"/>
-                                                        <TextBlock x:Name="SkillsSummaryText" Text="点击管理提示词能力"
-                                                                   FontSize="10" Foreground="{DynamicResource SettingsLabel}" TextWrapping="Wrap"/>
-                                                    </StackPanel>
-                                                </Button>
-                                            </Grid>
-                                        </StackPanel>
-                                    </Border>
-
-                                    <!-- 讯飞语音转写配置区 -->
-                                    <Border Background="{DynamicResource SettingsNavBg}" CornerRadius="6" Padding="12,10" Margin="0,12,0,0">
-                                        <StackPanel>
-                                            <TextBlock Text="🎙 语音转写" FontSize="13" FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource SettingsTitle}" Margin="0,0,0,4"/>
-                                            <TextBlock Text="支持两种转写方式：1) Windows系统语音识别（免费，无需配置）；2) 科大讯飞API（准确率更高，需配置）。会议纪要Agent会优先使用讯飞，未配置时回退到系统识别。"
-                                                       FontSize="10" Foreground="{DynamicResource SettingsLabel}" Margin="0,0,0,10" TextWrapping="Wrap"/>
-
-                                            <CheckBox x:Name="XfyunEnabledCheck" Content="启用科大讯飞语音转写（不勾选则使用Windows系统识别）" Margin="0,0,0,10"
-                                                      Style="{DynamicResource SettingsCheckBoxStyle}"/>
-
-                                            <TextBlock Text="讯飞 AppID" FontSize="11" Margin="0,0,0,4" Foreground="{DynamicResource SettingsLabel}"/>
-                                            <TextBox x:Name="XfyunAppIdBox" Style="{DynamicResource SettingsTextBoxStyle}"
-                                                     Width="320" Margin="0,0,0,10" HorizontalAlignment="Left"/>
-
-                                            <TextBlock Text="讯飞 APIKey" FontSize="11" Margin="0,0,0,4" Foreground="{DynamicResource SettingsLabel}"/>
-                                            <TextBox x:Name="XfyunApiKeyBox" Style="{DynamicResource SettingsTextBoxStyle}"
-                                                     Width="320" Margin="0,0,0,10" HorizontalAlignment="Left"/>
-
-                                            <TextBlock Text="讯飞 APISecret" FontSize="11" Margin="0,0,0,4" Foreground="{DynamicResource SettingsLabel}"/>
-                                            <TextBox x:Name="XfyunApiSecretBox" Style="{DynamicResource SettingsTextBoxStyle}"
-                                                     Width="320" Margin="0,0,0,10" HorizontalAlignment="Left"/>
-
-                                            <TextBlock Text="申请地址：https://console.xfyun.cn/services/lfasr" FontSize="10"
-                                                       Foreground="{DynamicResource SettingsLabel}" Margin="0,0,0,10"/>
-
-                                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                                <Button Content="保存配置" MinWidth="96"
-                                                        Style="{DynamicResource SecondaryButtonStyle}"
-                                                        Click="SaveXfyun_Click" Margin="0,0,8,0"/>
-                                                <Button Content="测试连通" MinWidth="96"
-                                                        Style="{DynamicResource SecondaryButtonStyle}"
-                                                        Click="TestXfyun_Click"/>
-                                            </StackPanel>
-                                        </StackPanel>
-                                    </Border>
-
-                                    <!-- 文件输出目录配置 -->
-                                    <Border Background="{DynamicResource SettingsNavBg}" CornerRadius="6" Padding="12,10" Margin="0,12,0,0">
-                                        <StackPanel>
-                                            <TextBlock Text="📁 文件输出目录" FontSize="13" FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource SettingsTitle}" Margin="0,0,0,8"/>
-                                            <TextBlock Text="设置AI生成的Word文档、录音文件等的保存位置（留空使用默认目录：我的文档\SimpleCalendar）"
-                                                       FontSize="10" Foreground="{DynamicResource SettingsLabel}" Margin="0,0,0,10" TextWrapping="Wrap"/>
-                                            <Grid Margin="0,0,0,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBox x:Name="DocumentOutputPathBox" Style="{DynamicResource SettingsTextBoxStyle}"
-                                                         Margin="0,0,8,0" Padding="8,6"
-                                                         ToolTip="留空则使用默认目录（我的文档\SimpleCalendar）"/>
-                                                <Button Grid.Column="1" Content="浏览..." MinWidth="80"
-                                                        Style="{DynamicResource SecondaryButtonStyle}"
-                                                        Click="BrowseOutputPath_Click"/>
-                                            </Grid>
-                                            <TextBlock x:Name="OutputPathHint" Text="" FontSize="10"
-                                                       Foreground="{DynamicResource SettingsLabel}" Margin="0,4,0,0"/>
-                                        </StackPanel>
-                                    </Border>
-
-                                    <!-- Token 用量统计 -->
-                                    <Border Background="{DynamicResource SettingsNavBg}" CornerRadius="6" Padding="12,10" Margin="0,12,0,0">
-                                        <StackPanel>
-                                            <Grid Margin="0,0,0,8">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Text="📊 Token 用量统计" FontSize="13" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource SettingsTitle}"/>
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                                    <TextBlock Text="单位：" FontSize="11" VerticalAlignment="Center"
-                                                               Foreground="{DynamicResource SettingsLabel}"/>
-                                                    <ComboBox x:Name="TokenUnitCombo" Width="80" FontSize="11" Margin="6,0,0,0"
-                                                              SelectionChanged="TokenUnitCombo_SelectionChanged">
-                                                        <ComboBoxItem Content="百万 (M)" Tag="M"/>
-                                                        <ComboBoxItem Content="亿 (Y)" Tag="Y"/>
-                                                    </ComboBox>
-                                                </StackPanel>
-                                            </Grid>
-                                            <Grid Margin="0,4,0,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                <Border Grid.Column="0" Background="#11FFFFFF" CornerRadius="6" Padding="10,8" Margin="0,0,6,0">
-                                                    <StackPanel>
-                                                        <TextBlock Text="累计总量" FontSize="10" Foreground="{DynamicResource SettingsLabel}"/>
-                                                        <TextBlock x:Name="TokenTotalText" Text="0.00 M" FontSize="18" FontWeight="Bold"
-                                                                   Foreground="{DynamicResource SettingsTitle}" Margin="0,2,0,0"/>
-                                                    </StackPanel>
-                                                </Border>
-                                                <Border Grid.Column="1" Background="#11FFFFFF" CornerRadius="6" Padding="10,8">
-                                                    <StackPanel>
-                                                        <TextBlock Text="今日用量" FontSize="10" Foreground="{DynamicResource SettingsLabel}"/>
-                                                        <TextBlock x:Name="TokenTodayText" Text="0.00 M" FontSize="18" FontWeight="Bold"
-                                                                   Foreground="{DynamicResource SettingsTitle}" Margin="0,2,0,0"/>
-                                                    </StackPanel>
-                                                </Border>
-                                            </Grid>
-                                            <TextBlock Text="日用量阈值（作为监控面板进度条总值）" FontSize="11" Margin="0,10,0,4"
-                                                       Foreground="{DynamicResource SettingsLabel}"/>
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                                <TextBox x:Name="TokenThresholdBox" Width="120" FontSize="11"
-                                                          Style="{DynamicResource SettingsTextBoxStyle}"
-                                                          LostFocus="TokenThreshold_LostFocus"/>
-                                                <TextBlock x:Name="TokenThresholdUnit" Text="（百万）" FontSize="10"
-                                                           VerticalAlignment="Center" Margin="6,0,0,0"
-                                                           Foreground="{DynamicResource SettingsLabel}"/>
-                                                <Button Content="应用" Width="60" Style="{DynamicResource SecondaryButtonStyle}"
-                                                        Padding="6,3" Margin="8,0,0,0" Click="TokenThresholdApply_Click"/>
-                                            </StackPanel>
-                                            <TextBlock Text="今日用量达到阈值时，监控面板进度条显示为满格并变红。当前单位跟随上方选择（百万或亿）。"
-                                                       FontSize="9" Foreground="{DynamicResource SettingsLabel}" Margin="0,0,0,8" TextWrapping="Wrap"/>
-                                            <TextBlock x:Name="TokenModelBreakdown" Text="" FontSize="10"
-                                                       Foreground="{DynamicResource SettingsLabel}" Margin="0,8,0,0" TextWrapping="Wrap"/>
-                                            <Button x:Name="ClearTokenBtn" Content="清空统计" Width="90" HorizontalAlignment="Left"
-                                                    Style="{DynamicResource SecondaryButtonStyle}" Padding="8,4" Margin="0,8,0,0"
-                                                    Click="ClearToken_Click"/>
-                                        </StackPanel>
-                                    </Border>
-
-                                </StackPanel>
-                            </StackPanel>
 
                             <!-- 高级设置页 -->
                             <StackPanel x:Name="PageAdvanced" Visibility="Collapsed">
@@ -501,6 +231,22 @@
                                 <TextBox x:Name="ApiUrlBox" Style="{DynamicResource SettingsTextBoxStyle}"
                                          Margin="0,0,0,16" MaxWidth="400" HorizontalAlignment="Left"
                                          ToolTip="用于获取黄历宜忌和广告数据"/>
+
+                                <TextBlock Text="AI CLI Hub（AI 功能由该开源项目提供）" FontSize="12" Margin="0,8,0,6" Foreground="{DynamicResource SettingsLabel}"/>
+                                <Grid Margin="0,0,0,8" MaxWidth="480" HorizontalAlignment="Left">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="AIHubPathBox" Style="{DynamicResource SettingsTextBoxStyle}"
+                                             Margin="0,0,8,0" Padding="8,6"
+                                             ToolTip="ai-cli-hub.exe 的路径；留空则自动探测常见安装位置"/>
+                                    <Button Grid.Column="1" Content="浏览..." MinWidth="80"
+                                            Style="{DynamicResource SecondaryButtonStyle}"
+                                            Click="BrowseAIHubPath_Click"/>
+                                </Grid>
+                                <TextBlock Text="留空则自动探测；未安装可到 https://github.com/Minner-C/ai-cli-hub 下载"
+                                           FontSize="10" Foreground="{DynamicResource SettingsLabel}" Margin="0,0,0,16" TextWrapping="Wrap"/>
 
                                 <TextBlock Text="关于" FontSize="12" Margin="0,8,0,6" Foreground="{DynamicResource SettingsLabel}"/>
                                 <TextBlock Text="SimpleCalendar v1.0.0&#x0a;任务栏时钟与日历&#x0a;支持农历、天气、黄历"

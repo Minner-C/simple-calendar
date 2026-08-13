@@ -14,11 +14,17 @@ public static class WindowForegroundHelper
 {
     public static void ForceForeground(Window window)
     {
+        var hwnd = new WindowInteropHelper(window).Handle;
+        if (hwnd == IntPtr.Zero) return;
+        ForceForeground(hwnd);
+        try { window.Activate(); } catch { }
+    }
+
+    /// <summary>句柄版本：把任意窗口（含外部进程窗口）带到前台。</summary>
+    public static void ForceForeground(IntPtr hwnd)
+    {
         try
         {
-            var hwnd = new WindowInteropHelper(window).Handle;
-            if (hwnd == IntPtr.Zero) return;
-
             var fgHwnd = NativeMethods.GetForegroundWindow();
             uint fgThread = NativeMethods.GetWindowThreadProcessId(fgHwnd, out _);
             uint curThread = NativeMethods.GetCurrentThreadId();
@@ -31,8 +37,6 @@ public static class WindowForegroundHelper
 
             if (fgThread != curThread)
                 NativeMethods.AttachThreadInput(curThread, fgThread, false);
-
-            window.Activate();
         }
         catch { }
     }

@@ -89,8 +89,22 @@ public static class HolidayData
         new() { Date = "2026-10-10", Name = "国庆调班", Type = HolidayType.Workday },
     };
 
-    private static readonly Dictionary<string, HolidayItem> HolidayMap =
+    private static Dictionary<string, HolidayItem> HolidayMap =
         Holidays.ToDictionary(h => h.Date, h => h);
+
+    /// <summary>
+    /// 用线上数据更新节假日表（同日期覆盖内置数据；整体替换字典引用，读写线程安全）
+    /// </summary>
+    public static void UpdateHolidays(IEnumerable<HolidayItem> items)
+    {
+        var map = new Dictionary<string, HolidayItem>(HolidayMap);
+        foreach (var item in items)
+        {
+            if (string.IsNullOrEmpty(item.Date)) continue;
+            map[item.Date] = item;
+        }
+        HolidayMap = map;
+    }
 
     public static HolidayItem? GetHolidayInfo(string date) =>
         HolidayMap.TryGetValue(date, out var item) ? item : null;
